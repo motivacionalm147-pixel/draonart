@@ -60,9 +60,10 @@ if %GRADLE_EXIT% NEQ 0 (
 )
 
 echo.
-echo [4/4] APK Gerado com Sucesso!
-echo Sincronizando com o servidor de download...
-copy /y "android\app\build\outputs\apk\debug\app-debug.apk" "Ferramentas\interno\download_server\DragonArt_v1_6_21.apk"
+echo ==============================================
+echo [4/4] COPIANDO PARA A PASTA DE DOWNLOAD v1.6.23...
+echo ==============================================
+copy /y "android\app\build\outputs\apk\debug\app-debug.apk" "Ferramentas\interno\download_server\DragonArt_v1_6_23.apk"
 echo.
 echo O arquivo atualizado esta em: Ferramentas\interno\download_server\DragonArt_v1_6_21.apk
 echo.

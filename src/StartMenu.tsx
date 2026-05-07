@@ -20,7 +20,10 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [projectOptionsModal, setProjectOptionsModal] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'home' | 'profile' | 'community'>('home');
-  
+  const [profileName, setProfileName] = useState('Artista Pixel');
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');  
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const carouselImages = [
     '/63b2de4429b84bb6e1cc632f2b8b9361.webp',
@@ -405,6 +408,32 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
     onStart(newConfig);
   };
 
+  const handleProfileImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfileImage(reader.result as string);
+        // Supabase: supabase.storage.from('avatars').upload(...)
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSaveProfile = () => {
+    sound.playAction();
+    // Supabase: await supabase.auth.updateUser({ data: { display_name: profileName }})
+    // alert('Perfil atualizado!');
+  };
+
+  const handleChangePassword = () => {
+    sound.playAction();
+    // Supabase: await supabase.auth.updateUser({ password: newPassword })
+    setCurrentPassword('');
+    setNewPassword('');
+    // alert('Senha alterada!');
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg-app)] font-sans text-[var(--text-primary)] relative transition-colors duration-300 pb-24 overflow-x-hidden">
 
@@ -435,7 +464,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                         DRAGONART
                       </h1>
                       <div className="mt-2 flex items-center gap-3">
-                        <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest bg-cyan-400/10 px-2 py-1 rounded-md border border-cyan-400/20">Studio v1.6.17</span>
+                        <span className="text-[10px] font-black text-[var(--accent-color)] uppercase tracking-widest bg-[var(--accent-color)]/10 px-2 py-1 rounded-md border border-[var(--accent-color)]/20">Studio v1.6.17</span>
                       </div>
                     </div>
                   </div>
@@ -468,18 +497,18 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
               <div className="flex-1 max-w-6xl mx-auto w-full p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                 <div className="lg:col-span-4 bg-[var(--bg-panel)] p-6 rounded-[32px] border border-white/5 shadow-xl">
                   <h2 className="text-xl font-bold mb-6 flex items-center gap-3">
-                    <div className="p-2 bg-cyan-500/20 rounded-xl text-cyan-400"><Plus size={20} /></div>
+                    <div className="p-2 bg-[var(--accent-color)]/20 rounded-xl text-[var(--accent-color)]"><Plus size={20} /></div>
                     Novo Desenho
                   </h2>
                   <div className="space-y-5">
-                    <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl focus:border-cyan-500 outline-none font-bold" />
+                    <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl focus:border-[var(--accent-color)] outline-none font-bold" />
                     <div className="grid grid-cols-2 gap-2">
                       {[16, 32, 64, 120].map(s => (
-                        <button key={s} onClick={() => { setSize(s); setIsCustom(false); }} className={`py-3 rounded-xl font-bold transition-all ${!isCustom && size === s ? 'bg-cyan-500 text-white' : 'bg-white/5 text-[var(--text-muted)]'}`}>{s}x{s}</button>
+                        <button key={s} onClick={() => { setSize(s); setIsCustom(false); }} className={`py-3 rounded-xl font-bold transition-all ${!isCustom && size === s ? 'bg-[var(--accent-color)] text-white' : 'bg-white/5 text-[var(--text-muted)]'}`}>{s}x{s}</button>
                       ))}
                       <button
                         onClick={() => setIsCustom(true)}
-                        className={`col-span-2 py-3 rounded-xl font-bold transition-all ${isCustom ? 'bg-cyan-500 text-white' : 'bg-white/5 text-[var(--text-muted)] hover:text-white'}`}
+                        className={`col-span-2 py-3 rounded-xl font-bold transition-all ${isCustom ? 'bg-[var(--accent-color)] text-white' : 'bg-white/5 text-[var(--text-muted)] hover:text-white'}`}
                       >
                         Tamanho Personalizado
                       </button>
@@ -501,7 +530,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                                 min="1" max="512"
                                 value={customWidth}
                                 onChange={(e) => setCustomWidth(Math.max(1, Math.min(512, parseInt(e.target.value) || 1)))}
-                                className="w-full bg-white/5 border border-white/10 p-3 rounded-xl focus:border-cyan-500 outline-none font-bold text-center"
+                                className="w-full bg-white/5 border border-white/10 p-3 rounded-xl focus:border-[var(--accent-color)] outline-none font-bold text-center"
                               />
                             </div>
                             <div className="flex items-end pb-3 font-bold text-[var(--text-muted)]">x</div>
@@ -512,7 +541,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                                 min="1" max="512"
                                 value={customHeight}
                                 onChange={(e) => setCustomHeight(Math.max(1, Math.min(512, parseInt(e.target.value) || 1)))}
-                                className="w-full bg-white/5 border border-white/10 p-3 rounded-xl focus:border-cyan-500 outline-none font-bold text-center"
+                                className="w-full bg-white/5 border border-white/10 p-3 rounded-xl focus:border-[var(--accent-color)] outline-none font-bold text-center"
                               />
                             </div>
                           </div>
@@ -530,7 +559,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                               <motion.div
                                 layout
                                 transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                                className="border-2 border-cyan-500 shadow-lg shadow-cyan-500/20 rounded-sm overflow-hidden"
+                                className="border-2 border-[var(--accent-color)] shadow-lg  rounded-sm overflow-hidden"
                                 style={{
                                   width: `${Math.min(160, Math.max(32, (customWidth / Math.max(customWidth, customHeight)) * 160))}px`,
                                   height: `${Math.min(160, Math.max(32, (customHeight / Math.max(customWidth, customHeight)) * 160))}px`,
@@ -540,7 +569,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                                 }}
                               >
                                 <div className="w-full h-full flex items-center justify-center">
-                                  <span className="text-[10px] font-black text-cyan-400 drop-shadow-md" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                                  <span className="text-[10px] font-black text-[var(--accent-color)] drop-shadow-md" style={{ fontFamily: '"Press Start 2P", monospace' }}>
                                     {customWidth}×{customHeight}
                                   </span>
                                 </div>
@@ -555,7 +584,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                         </motion.div>
                       )}
                     </AnimatePresence>
-                    <button onClick={handleStart} className="w-full bg-cyan-500 hover:bg-cyan-400 p-4 rounded-2xl text-white font-black text-lg shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all">
+                    <button onClick={handleStart} className="w-full bg-[var(--accent-color)] hover:brightness-110 p-4 rounded-2xl text-white font-black text-lg shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all">
                       <Palette size={24} /> CRIAR AGORA
                     </button>
                   </div>
@@ -563,19 +592,19 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
 
                 <div className="lg:col-span-8 flex flex-col gap-6">
                   <h2 className="text-xl font-black flex items-center gap-3">
-                    <LayersIcon className="text-cyan-400" size={24} /> Meus Projetos
+                    <LayersIcon className="text-[var(--accent-color)]" size={24} /> Meus Projetos
                   </h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {savedProjects.length === 0 ? (
                       <div className="col-span-full py-20 text-center opacity-30 font-bold">Nenhum projeto salvo.</div>
                     ) : (
                       savedProjects.map(p => (
-                        <div key={p.id} onClick={() => onStart(p)} className="bg-[var(--bg-panel)] p-4 rounded-[28px] border border-white/5 hover:border-cyan-500/50 cursor-pointer transition-all hover:-translate-y-1 shadow-lg">
+                        <div key={p.id} onClick={() => onStart(p)} className="bg-[var(--bg-panel)] p-4 rounded-[28px] border border-white/5 hover:border-[var(--accent-color)]/50 cursor-pointer transition-all hover:-translate-y-1 shadow-lg">
                           <div className="aspect-square bg-white/5 rounded-2xl mb-3 flex items-center justify-center overflow-hidden">
                              {p.thumbnail ? <img src={p.thumbnail} className="w-full h-full object-contain image-pixelated" /> : <Palette className="opacity-20" size={40} />}
                           </div>
                           <h4 className="font-bold truncate text-sm">{p.name}</h4>
-                          <p className="text-[10px] font-bold text-cyan-400/60 uppercase">{p.width}x{p.height} Pixels</p>
+                          <p className="text-[10px] font-bold text-[var(--accent-color)]/60 uppercase">{p.width}x{p.height} Pixels</p>
                         </div>
                       ))
                     )}
@@ -591,32 +620,117 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="flex-1 max-w-4xl mx-auto w-full p-6 flex flex-col items-center justify-center text-center"
+              className="flex-1 max-w-4xl mx-auto w-full p-6 flex flex-col md:flex-row gap-8 items-start justify-center"
             >
-              <div className="w-32 h-32 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center shadow-2xl mb-6 border-4 border-white/10 p-1">
-                <div className="w-full h-full bg-[var(--bg-panel)] rounded-full flex items-center justify-center overflow-hidden">
-                  <span className="text-4xl font-black text-white" style={{ fontFamily: '"Press Start 2P", monospace' }}>?</span>
+              {/* Left Column: Avatar & Basic Info */}
+              <div className="w-full md:w-1/3 flex flex-col items-center">
+                <div className="relative group cursor-pointer mb-6" onClick={() => document.getElementById('profile-upload')?.click()}>
+                  <div className="w-40 h-40 bg-gradient-to-br from-[var(--accent-color)] to-[var(--bg-panel)] rounded-[40px] flex items-center justify-center shadow-2xl border-4 border-white/10 p-1 transition-transform group-hover:scale-105">
+                    <div className="w-full h-full bg-[var(--bg-panel)] rounded-[32px] overflow-hidden flex items-center justify-center relative">
+                      {profileImage ? (
+                        <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
+                      ) : (
+                        <User size={64} className="text-white/20" />
+                      )}
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                        <ImageIcon size={32} className="text-white" />
+                      </div>
+                    </div>
+                  </div>
+                  <input id="profile-upload" type="file" accept="image/*" className="hidden" onChange={handleProfileImageUpload} />
+                  <div className="absolute -bottom-2 -right-2 bg-[var(--accent-color)] p-2 rounded-xl shadow-lg">
+                    <Pencil size={16} className="text-white" />
+                  </div>
                 </div>
-              </div>
-              <h2 className="text-3xl font-black text-white mb-2">Meu Perfil</h2>
-              <p className="text-[var(--text-muted)] font-bold mb-8">Faça login para salvar suas artes na nuvem e interagir com a comunidade.</p>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-md">
-                <div className="p-6 bg-[var(--bg-panel)] rounded-3xl border border-white/5 flex flex-col items-center gap-3 shadow-xl">
-                  <Star className="text-yellow-400" size={32} />
-                  <span className="text-xl font-bold">0</span>
-                  <span className="text-xs font-black uppercase opacity-40">Curtidas</span>
-                </div>
-                <div className="p-6 bg-[var(--bg-panel)] rounded-3xl border border-white/5 flex flex-col items-center gap-3 shadow-xl">
-                  <FileImage className="text-cyan-400" size={32} />
-                  <span className="text-xl font-bold">{savedProjects.length}</span>
-                  <span className="text-xs font-black uppercase opacity-40">Artes</span>
+
+                <div className="w-full space-y-4">
+                  <div>
+                    <label className="block text-xs font-black uppercase text-[var(--text-muted)] mb-2 tracking-widest pl-2">Nome de Exibição</label>
+                    <input 
+                      type="text" 
+                      value={profileName}
+                      onChange={(e) => setProfileName(e.target.value)}
+                      className="w-full bg-[var(--bg-panel)] border border-white/10 p-4 rounded-2xl focus:border-[var(--accent-color)] outline-none font-bold text-lg text-center shadow-inner transition-colors"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-[var(--bg-panel)] rounded-2xl border border-white/5 flex flex-col items-center gap-2 shadow-md">
+                      <Star className="text-yellow-400" size={24} />
+                      <div className="flex flex-col items-center">
+                        <span className="text-lg font-black leading-none">0</span>
+                        <span className="text-[10px] font-bold uppercase opacity-50">Curtidas</span>
+                      </div>
+                    </div>
+                    <div className="p-4 bg-[var(--bg-panel)] rounded-2xl border border-white/5 flex flex-col items-center gap-2 shadow-md">
+                      <FileImage className="text-[var(--accent-color)]" size={24} />
+                      <div className="flex flex-col items-center">
+                        <span className="text-lg font-black leading-none">{savedProjects.length}</span>
+                        <span className="text-[10px] font-bold uppercase opacity-50">Artes</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <button className="mt-12 px-12 py-5 bg-cyan-500 rounded-2xl text-white font-black text-lg shadow-xl shadow-cyan-500/20 hover:scale-105 transition-transform active:scale-95">
-                ENTRAR / CRIAR CONTA
-              </button>
+              {/* Right Column: Security & Actions */}
+              <div className="w-full md:w-2/3 flex flex-col gap-6">
+                <div className="bg-[var(--bg-panel)] rounded-[32px] p-6 md:p-8 border border-white/5 shadow-xl">
+                  <h3 className="text-xl font-black mb-6 flex items-center gap-3">
+                    <div className="p-2 bg-[var(--accent-color)]/20 rounded-xl text-[var(--accent-color)]">
+                      <Settings size={20} />
+                    </div>
+                    Segurança e Conta
+                  </h3>
+                  
+                  <div className="space-y-6">
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-[var(--text-muted)] mb-2 pl-2">Nova Senha</label>
+                        <input 
+                          type="password" 
+                          placeholder="Digite a nova senha"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl focus:border-[var(--accent-color)] outline-none font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-[var(--text-muted)] mb-2 pl-2">Confirmar Senha Atual (para alterar)</label>
+                        <input 
+                          type="password" 
+                          placeholder="Digite a senha atual"
+                          value={currentPassword}
+                          onChange={(e) => setCurrentPassword(e.target.value)}
+                          className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl focus:border-[var(--accent-color)] outline-none font-bold"
+                        />
+                      </div>
+                      <button 
+                        onClick={handleChangePassword}
+                        disabled={!newPassword || !currentPassword}
+                        className="w-full p-4 rounded-2xl font-black border-2 border-[var(--accent-color)] text-[var(--accent-color)] hover:bg-[var(--accent-color)] hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        ATUALIZAR SENHA
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <button 
+                    onClick={handleSaveProfile}
+                    className="flex-1 bg-[var(--accent-color)] hover:brightness-110 p-5 rounded-[24px] text-white font-black text-lg shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  >
+                    <Check size={24} /> SALVAR PERFIL
+                  </button>
+                  <button 
+                    className="p-5 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-[24px] font-black shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
+                    title="Sair da Conta"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
+              </div>
             </motion.div>
           )}
 
@@ -631,7 +745,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-3xl font-black text-white" style={{ textShadow: '2px 2px 0 #000' }}>Comunidade</h2>
-                  <p className="text-xs font-bold text-cyan-400 uppercase tracking-widest mt-1">Galeria Global de Artistas</p>
+                  <p className="text-xs font-bold text-[var(--accent-color)] uppercase tracking-widest mt-1">Galeria Global de Artistas</p>
                 </div>
               </div>
 
@@ -648,8 +762,8 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
               </div>
 
               <div className="flex flex-col items-center justify-center py-20 text-center bg-white/5 rounded-[48px] border border-dashed border-white/10">
-                <div className="w-20 h-20 bg-cyan-500/10 rounded-full flex items-center justify-center mb-6">
-                  <Sun className="text-cyan-400 animate-spin-slow" size={40} />
+                <div className="w-20 h-20 bg-[var(--accent-color)]/10 rounded-full flex items-center justify-center mb-6">
+                  <Sun className="text-[var(--accent-color)] animate-spin-slow" size={40} />
                 </div>
                 <h3 className="text-2xl font-black text-white mb-3">Conectando ao DragonCloud...</h3>
                 <p className="text-sm text-[var(--text-muted)] max-w-xs font-bold">A comunidade online está sendo preparada para a v2.0! Em breve você poderá compartilhar suas artes.</p>
@@ -671,9 +785,9 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
               
               <button 
                 onClick={() => { sound.playClick(); setActiveTab('profile'); }}
-                className={`flex-1 flex flex-col items-center justify-center gap-1 transition-all duration-300 h-full rounded-l-full ${activeTab === 'profile' ? 'text-cyan-400' : 'text-white/40 hover:text-white/80 hover:bg-white/5'}`}
+                className={`flex-1 flex flex-col items-center justify-center gap-1 transition-all duration-300 h-full rounded-l-full ${activeTab === 'profile' ? 'text-[var(--accent-color)]' : 'text-white/40 hover:text-white/80 hover:bg-white/5'}`}
               >
-                <User size={24} className={activeTab === 'profile' ? 'fill-cyan-400/20' : ''} />
+                <User size={24} className={activeTab === 'profile' ? 'fill-[var(--accent-color)]/20' : ''} />
                 <span className="text-[10px] font-black uppercase tracking-tighter mt-0.5">Perfil</span>
               </button>
 
@@ -682,23 +796,23 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                  <div className="absolute -top-[34px] flex flex-col items-center pointer-events-auto">
                     <button 
                       onClick={() => { sound.playClick(); setActiveTab('home'); }}
-                      className={`w-[80px] h-[80px] rounded-full flex items-center justify-center transition-all duration-300 border-[8px] shadow-[0_10px_20px_rgba(0,0,0,0.5)] active:scale-95 z-10 ${activeTab === 'home' ? 'bg-cyan-500 text-white shadow-cyan-500/40' : 'bg-[var(--bg-element)] text-white/50 hover:text-white'}`}
+                      className={`w-[80px] h-[80px] rounded-full flex items-center justify-center transition-all duration-300 border-[8px] shadow-[0_10px_20px_rgba(0,0,0,0.5)] active:scale-95 z-10 ${activeTab === 'home' ? 'bg-[var(--accent-color)] text-white ' : 'bg-[var(--bg-element)] text-white/50 hover:text-white'}`}
                       style={{ borderColor: 'var(--bg-app)' }}
                     >
                       <Home size={32} className={activeTab === 'home' ? 'fill-white/20' : ''} />
                     </button>
                     {/* The label can be absolute to not affect button centering */}
                  </div>
-                 <span className={`absolute bottom-2 text-[10px] font-black uppercase tracking-tighter ${activeTab === 'home' ? 'text-cyan-400' : 'text-white/40'}`}>
+                 <span className={`absolute bottom-2 text-[10px] font-black uppercase tracking-tighter ${activeTab === 'home' ? 'text-[var(--accent-color)]' : 'text-white/40'}`}>
                     Início
                  </span>
               </div>
 
               <button 
                 onClick={() => { sound.playClick(); setActiveTab('community'); }}
-                className={`flex-1 flex flex-col items-center justify-center gap-1 transition-all duration-300 h-full rounded-r-full ${activeTab === 'community' ? 'text-cyan-400' : 'text-white/40 hover:text-white/80 hover:bg-white/5'}`}
+                className={`flex-1 flex flex-col items-center justify-center gap-1 transition-all duration-300 h-full rounded-r-full ${activeTab === 'community' ? 'text-[var(--accent-color)]' : 'text-white/40 hover:text-white/80 hover:bg-white/5'}`}
               >
-                <Users size={24} className={activeTab === 'community' ? 'fill-cyan-400/20' : ''} />
+                <Users size={24} className={activeTab === 'community' ? 'fill-[var(--accent-color)]/20' : ''} />
                 <span className="text-[10px] font-black uppercase tracking-tighter mt-0.5">Comunidade</span>
               </button>
             </div>
@@ -719,7 +833,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
           <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto" onClick={() => setShowSettings(false)}>
              <div className="bg-[var(--bg-panel)] w-full max-w-4xl p-8 rounded-[40px] border border-white/5 relative my-auto flex flex-col gap-6" onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-center pb-4 border-b border-white/10">
-                  <h3 className="text-2xl font-black flex items-center gap-3"><Settings className="text-cyan-400" /> Configurações</h3>
+                  <h3 className="text-2xl font-black flex items-center gap-3"><Settings className="text-[var(--accent-color)]" /> Configurações</h3>
                   <button onClick={() => setShowSettings(false)} className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors"><X size={24} /></button>
                 </div>
                 
@@ -727,14 +841,14 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                   {/* Themes */}
                   <div>
                     <h4 className="font-bold text-xl mb-4 flex items-center gap-2">
-                      <Palette className="text-cyan-400" /> Cores de Fundo (Temas)
+                      <Palette className="text-[var(--accent-color)]" /> Cores de Fundo (Temas)
                     </h4>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 max-h-[40vh] overflow-y-auto pr-2">
                       {themes.map((theme) => (
                         <button
                           key={theme.id}
                           onClick={() => changeTheme(theme.id)}
-                          className={`flex flex-col items-center gap-3 p-4 rounded-2xl border-2 transition-all duration-200 ${currentThemeId === theme.id ? 'border-cyan-500 bg-cyan-500/10 scale-105 shadow-md' : 'border-white/5 bg-white/5 hover:border-white/20 hover:-translate-y-1'}`}
+                          className={`flex flex-col items-center gap-3 p-4 rounded-2xl border-2 transition-all duration-200 ${currentThemeId === theme.id ? 'border-[var(--accent-color)] bg-[var(--accent-color)]/10 scale-105 shadow-md' : 'border-white/5 bg-white/5 hover:border-white/20 hover:-translate-y-1'}`}
                         >
                           <div className="w-12 h-12 rounded-full overflow-hidden shadow-inner flex relative" style={{ backgroundColor: theme.colors.bgApp }}>
                             <div className="w-1/2 h-full" style={{ backgroundColor: theme.colors.bgSurface }}></div>
@@ -743,7 +857,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                             </div>
                           </div>
                           <span className="text-xs font-bold text-center">{theme.name}</span>
-                          {currentThemeId === theme.id && <span className="absolute top-2 right-2 text-cyan-400 bg-white/10 rounded-full p-0.5"><Check size={14} /></span>}
+                          {currentThemeId === theme.id && <span className="absolute top-2 right-2 text-[var(--accent-color)] bg-white/10 rounded-full p-0.5"><Check size={14} /></span>}
                         </button>
                       ))}
                     </div>
@@ -762,7 +876,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                           <span className="block font-bold">Efeitos Sonoros</span>
                           <span className="text-xs opacity-40 font-bold">Sons de interface</span>
                         </div>
-                        <button onClick={toggleSfx} className={`w-14 h-7 rounded-full relative transition-colors ${sfxEnabled ? 'bg-cyan-500' : 'bg-white/10'}`}>
+                        <button onClick={toggleSfx} className={`w-14 h-7 rounded-full relative transition-colors ${sfxEnabled ? 'bg-[var(--accent-color)]' : 'bg-white/10'}`}>
                           <div className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow-lg transition-all ${sfxEnabled ? 'right-1' : 'left-1'}`} />
                         </button>
                       </div>
@@ -771,7 +885,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                           <span className="block font-bold">Música de Fundo</span>
                           <span className="text-xs opacity-40 font-bold">Ambiente relaxante</span>
                         </div>
-                        <button onClick={toggleBgm} className={`w-14 h-7 rounded-full relative transition-colors ${bgmEnabled ? 'bg-cyan-500' : 'bg-white/10'}`}>
+                        <button onClick={toggleBgm} className={`w-14 h-7 rounded-full relative transition-colors ${bgmEnabled ? 'bg-[var(--accent-color)]' : 'bg-white/10'}`}>
                           <div className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow-lg transition-all ${bgmEnabled ? 'right-1' : 'left-1'}`} />
                         </button>
                       </div>
@@ -785,14 +899,14 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
         {showTutorials && (
           <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setShowTutorials(false)}>
              <div className="bg-[var(--bg-panel)] w-full max-w-2xl p-8 rounded-[40px] border border-white/5 relative max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                <h3 className="text-2xl font-black mb-6 flex items-center gap-3"><BookOpen className="text-cyan-400" /> Diretrizes</h3>
+                <h3 className="text-2xl font-black mb-6 flex items-center gap-3"><BookOpen className="text-[var(--accent-color)]" /> Diretrizes</h3>
                 <div className="space-y-4 text-sm opacity-70 leading-relaxed font-bold">
                   <p>1. O Dragon Art é uma ferramenta profissional de pixel art.</p>
                   <p>2. Suas artes são de sua propriedade exclusiva.</p>
                   <p>3. Use gestos (2 dedos) para navegar livremente pela folha.</p>
                   <p>4. Toque com 2 dedos fora da folha para desfazer ações rapidamente.</p>
                 </div>
-                <button onClick={() => setShowTutorials(false)} className="mt-8 w-full p-4 bg-cyan-500 rounded-2xl font-black text-white transition-all">ENTENDI TUDO</button>
+                <button onClick={() => setShowTutorials(false)} className="mt-8 w-full p-4 bg-[var(--accent-color)] rounded-2xl font-black text-white transition-all">ENTENDI TUDO</button>
              </div>
           </div>
         )}
