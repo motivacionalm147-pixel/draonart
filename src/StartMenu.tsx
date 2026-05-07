@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Trash2, Plus, Download, Palette, Settings, HelpCircle, X, PlayCircle, BookOpen, Pencil, Eraser, PaintBucket, Pipette, Square, Move, Hand, Type, Layers as LayersIcon, Film, Undo, Grid, ZoomIn, Play, Copy, Sun, Moon, Check, Keyboard, Star, FolderOpen, Video, Image as ImageIcon, FileImage, FileVideo, Eye, Expand, User, Users, Home, Menu } from 'lucide-react';
+import { Trash2, Plus, Download, Palette, Settings, HelpCircle, X, PlayCircle, BookOpen, Pencil, Eraser, PaintBucket, Pipette, Square, Move, Hand, Type, Layers as LayersIcon, Film, Undo, Grid, ZoomIn, Play, Copy, Sun, Moon, Check, Keyboard, Star, FolderOpen, Video, Image as ImageIcon, FileImage, FileVideo, Eye, Expand, User, Users, Home, Menu, LogOut, Shield, Award, Mail, Lock, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
@@ -9,6 +9,8 @@ import { sound } from './sound';
 import { ProjectConfig } from './types';
 import { themes, applyTheme } from './theme';
 import { generateId } from './utils';
+import { supabase } from './lib/supabase';
+import type { Session } from '@supabase/supabase-js';
 
 export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig) => void }) {
   const [name, setName] = useState('My Pixel Art');
@@ -23,7 +25,18 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
   const [profileName, setProfileName] = useState('Artista Pixel');
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');  
+  const [newPassword, setNewPassword] = useState('');
+
+  // Supabase Auth State
+  const [session, setSession] = useState<Session | null>(null);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [registerName, setRegisterName] = useState('');
+  const [experienceLevel, setExperienceLevel] = useState<'iniciante' | 'intermediario' | 'avancado' | 'mestre'>('iniciante');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authSuccess, setAuthSuccess] = useState<string | null>(null);  
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const carouselImages = [
     '/63b2de4429b84bb6e1cc632f2b8b9361.webp',
@@ -408,30 +421,82 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
     onStart(newConfig);
   };
 
+  // Supabase session listener
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
+      setSession(s);
+      if (s?.user?.user_metadata) {
+        setProfileName(s.user.user_metadata.display_name || 'Artista Pixel');
+        setExperienceLevel(s.user.user_metadata.experience_level || 'iniciante');
+      }
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s);
+      if (s?.user?.user_metadata) {
+        setProfileName(s.user.user_metadata.display_name || 'Artista Pixel');
+        setExperienceLevel(s.user.user_metadata.experience_level || 'iniciante');
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const experienceLevels = [
+    { id: 'iniciante' as const, label: 'Iniciante', icon: '🌱', desc: 'Começando no pixel art' },
+    { id: 'intermediario' as const, label: 'Intermediário', icon: '⚡', desc: 'Já domino o básico' },
+    { id: 'avancado' as const, label: 'Avançado', icon: '🔥', desc: 'Crio artes complexas' },
+    { id: 'mestre' as const, label: 'Mestre', icon: '👑', desc: 'Artista profissional' },
+  ];
+
+  const handleSignUp = async () => {
+    setAuthLoading(true); setAuthError(null); setAuthSuccess(null);
+    const { error } = await supabase.auth.signUp({
+      email: authEmail, password: authPassword,
+      options: { data: { display_name: registerName, experience_level: experienceLevel } }
+    });
+    setAuthLoading(false);
+    if (error) { setAuthError(error.message); return; }
+    setAuthSuccess('Conta criada! Verifique seu e-mail ou faça login.');
+    setAuthMode('login');
+  };
+
+  const handleSignIn = async () => {
+    setAuthLoading(true); setAuthError(null); setAuthSuccess(null);
+    const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
+    setAuthLoading(false);
+    if (error) { setAuthError(error.message); return; }
+    sound.playAction();
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setSession(null); setProfileImage(null); setProfileName('Artista Pixel');
+    sound.playClick();
+  };
+
   const handleProfileImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfileImage(reader.result as string);
-        // Supabase: supabase.storage.from('avatars').upload(...)
-      };
+      reader.onloadend = () => setProfileImage(reader.result as string);
       reader.readAsDataURL(file);
     }
   };
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     sound.playAction();
-    // Supabase: await supabase.auth.updateUser({ data: { display_name: profileName }})
-    // alert('Perfil atualizado!');
+    const { error } = await supabase.auth.updateUser({ data: { display_name: profileName, experience_level: experienceLevel } });
+    if (error) setAuthError(error.message);
+    else setAuthSuccess('Perfil salvo!');
+    setTimeout(() => setAuthSuccess(null), 3000);
   };
 
-  const handleChangePassword = () => {
-    sound.playAction();
-    // Supabase: await supabase.auth.updateUser({ password: newPassword })
-    setCurrentPassword('');
-    setNewPassword('');
-    // alert('Senha alterada!');
+  const handleChangePassword = async () => {
+    sound.playAction(); setAuthError(null);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) { setAuthError(error.message); return; }
+    setCurrentPassword(''); setNewPassword('');
+    setAuthSuccess('Senha alterada com sucesso!');
+    setTimeout(() => setAuthSuccess(null), 3000);
   };
 
   return (
@@ -620,117 +685,188 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="flex-1 max-w-4xl mx-auto w-full p-6 flex flex-col md:flex-row gap-8 items-start justify-center"
+              className="flex-1 max-w-4xl mx-auto w-full p-6 flex flex-col items-center justify-start overflow-y-auto"
             >
-              {/* Left Column: Avatar & Basic Info */}
-              <div className="w-full md:w-1/3 flex flex-col items-center">
-                <div className="relative group cursor-pointer mb-6" onClick={() => document.getElementById('profile-upload')?.click()}>
-                  <div className="w-40 h-40 bg-gradient-to-br from-[var(--accent-color)] to-[var(--bg-panel)] rounded-[40px] flex items-center justify-center shadow-2xl border-4 border-white/10 p-1 transition-transform group-hover:scale-105">
-                    <div className="w-full h-full bg-[var(--bg-panel)] rounded-[32px] overflow-hidden flex items-center justify-center relative">
-                      {profileImage ? (
-                        <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
+              {/* Auth Messages */}
+              <AnimatePresence>
+                {authError && (
+                  <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full max-w-md mb-4 p-4 bg-red-500/15 border border-red-500/30 rounded-2xl text-red-400 text-sm font-bold text-center">
+                    {authError}
+                  </motion.div>
+                )}
+                {authSuccess && (
+                  <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full max-w-md mb-4 p-4 bg-green-500/15 border border-green-500/30 rounded-2xl text-green-400 text-sm font-bold text-center">
+                    {authSuccess}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {!session ? (
+                /* ========== NOT LOGGED IN: Login / Register ========== */
+                <div className="w-full max-w-md flex flex-col items-center">
+                  <div className="w-24 h-24 bg-gradient-to-br from-[var(--accent-color)] to-[var(--bg-panel)] rounded-[28px] flex items-center justify-center shadow-2xl border-4 border-white/10 mb-6">
+                    <User size={48} className="text-white/40" />
+                  </div>
+                  <h2 className="text-2xl font-black text-white mb-1">
+                    {authMode === 'login' ? 'Entrar na Conta' : 'Criar Conta'}
+                  </h2>
+                  <p className="text-[var(--text-muted)] text-sm font-bold mb-8">
+                    {authMode === 'login' ? 'Acesse seu perfil de artista' : 'Cadastre-se e mostre suas artes'}
+                  </p>
+
+                  <div className="w-full space-y-4">
+                    {/* Register-only: Name */}
+                    {authMode === 'register' && (
+                      <div>
+                        <label className="block text-xs font-black uppercase text-[var(--text-muted)] mb-2 tracking-widest pl-2">Nome de Artista</label>
+                        <div className="relative">
+                          <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" />
+                          <input type="text" placeholder="Seu nome criativo" value={registerName} onChange={e => setRegisterName(e.target.value)}
+                            className="w-full bg-[var(--bg-panel)] border border-white/10 p-4 pl-12 rounded-2xl focus:border-[var(--accent-color)] outline-none font-bold" />
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-xs font-black uppercase text-[var(--text-muted)] mb-2 tracking-widest pl-2">E-mail</label>
+                      <div className="relative">
+                        <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" />
+                        <input type="email" placeholder="seu@email.com" value={authEmail} onChange={e => setAuthEmail(e.target.value)}
+                          className="w-full bg-[var(--bg-panel)] border border-white/10 p-4 pl-12 rounded-2xl focus:border-[var(--accent-color)] outline-none font-bold" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-black uppercase text-[var(--text-muted)] mb-2 tracking-widest pl-2">Senha</label>
+                      <div className="relative">
+                        <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" />
+                        <input type="password" placeholder="Mínimo 6 caracteres" value={authPassword} onChange={e => setAuthPassword(e.target.value)}
+                          className="w-full bg-[var(--bg-panel)] border border-white/10 p-4 pl-12 rounded-2xl focus:border-[var(--accent-color)] outline-none font-bold" />
+                      </div>
+                    </div>
+
+                    {/* Register-only: Experience Level */}
+                    {authMode === 'register' && (
+                      <div>
+                        <label className="block text-xs font-black uppercase text-[var(--text-muted)] mb-3 tracking-widest pl-2">Seu Nível</label>
+                        <div className="grid grid-cols-2 gap-3">
+                          {experienceLevels.map(lvl => (
+                            <button key={lvl.id} onClick={() => setExperienceLevel(lvl.id)}
+                              className={`p-4 rounded-2xl border-2 transition-all text-left ${experienceLevel === lvl.id ? 'border-[var(--accent-color)] bg-[var(--accent-color)]/10 scale-[1.02]' : 'border-white/5 bg-[var(--bg-panel)] hover:border-white/20'}`}>
+                              <span className="text-2xl">{lvl.icon}</span>
+                              <div className="font-black text-sm mt-1">{lvl.label}</div>
+                              <div className="text-[10px] opacity-50 font-bold">{lvl.desc}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <button onClick={authMode === 'login' ? handleSignIn : handleSignUp} disabled={authLoading || !authEmail || !authPassword}
+                      className="w-full p-5 bg-[var(--accent-color)] rounded-2xl text-white font-black text-lg shadow-lg hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                      {authLoading ? (
+                        <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin" />
                       ) : (
-                        <User size={64} className="text-white/20" />
+                        <>{authMode === 'login' ? 'ENTRAR' : 'CRIAR CONTA'} <ChevronRight size={20} /></>
                       )}
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                        <ImageIcon size={32} className="text-white" />
-                      </div>
-                    </div>
-                  </div>
-                  <input id="profile-upload" type="file" accept="image/*" className="hidden" onChange={handleProfileImageUpload} />
-                  <div className="absolute -bottom-2 -right-2 bg-[var(--accent-color)] p-2 rounded-xl shadow-lg">
-                    <Pencil size={16} className="text-white" />
+                    </button>
+
+                    <button onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthError(null); }}
+                      className="w-full text-center text-sm font-bold text-[var(--text-muted)] hover:text-white transition-colors py-2">
+                      {authMode === 'login' ? 'Não tem conta? Cadastre-se' : 'Já tem conta? Faça login'}
+                    </button>
                   </div>
                 </div>
+              ) : (
+                /* ========== LOGGED IN: Dashboard ========== */
+                <div className="w-full flex flex-col md:flex-row gap-8 items-start justify-center">
+                  {/* Left Column: Avatar & Info */}
+                  <div className="w-full md:w-1/3 flex flex-col items-center">
+                    <div className="relative group cursor-pointer mb-4" onClick={() => document.getElementById('profile-upload')?.click()}>
+                      <div className="w-36 h-36 bg-gradient-to-br from-[var(--accent-color)] to-[var(--bg-panel)] rounded-[36px] flex items-center justify-center shadow-2xl border-4 border-white/10 p-1 transition-transform group-hover:scale-105">
+                        <div className="w-full h-full bg-[var(--bg-panel)] rounded-[28px] overflow-hidden flex items-center justify-center relative">
+                          {profileImage ? (
+                            <img src={profileImage} alt="Avatar" className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-5xl">{experienceLevels.find(l => l.id === experienceLevel)?.icon || '🌱'}</span>
+                          )}
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                            <ImageIcon size={28} className="text-white" />
+                          </div>
+                        </div>
+                      </div>
+                      <input id="profile-upload" type="file" accept="image/*" className="hidden" onChange={handleProfileImageUpload} />
+                      <div className="absolute -bottom-2 -right-2 bg-[var(--accent-color)] p-2 rounded-xl shadow-lg">
+                        <Pencil size={14} className="text-white" />
+                      </div>
+                    </div>
 
-                <div className="w-full space-y-4">
-                  <div>
-                    <label className="block text-xs font-black uppercase text-[var(--text-muted)] mb-2 tracking-widest pl-2">Nome de Exibição</label>
-                    <input 
-                      type="text" 
-                      value={profileName}
-                      onChange={(e) => setProfileName(e.target.value)}
-                      className="w-full bg-[var(--bg-panel)] border border-white/10 p-4 rounded-2xl focus:border-[var(--accent-color)] outline-none font-bold text-lg text-center shadow-inner transition-colors"
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 bg-[var(--bg-panel)] rounded-2xl border border-white/5 flex flex-col items-center gap-2 shadow-md">
-                      <Star className="text-yellow-400" size={24} />
-                      <div className="flex flex-col items-center">
+                    {/* Name */}
+                    <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)}
+                      className="w-full bg-transparent border-none text-center text-xl font-black text-white outline-none focus:bg-[var(--bg-panel)] rounded-2xl p-2 transition-colors" />
+
+                    {/* Experience Badge */}
+                    <div className="mt-1 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider flex items-center gap-1.5"
+                      style={{ background: 'var(--accent-color)', color: 'white', opacity: 0.9 }}>
+                      <Award size={14} />
+                      {experienceLevels.find(l => l.id === experienceLevel)?.label || 'Iniciante'}
+                    </div>
+
+                    {/* Email display */}
+                    <p className="text-xs text-[var(--text-muted)] font-bold mt-3 flex items-center gap-1">
+                      <Mail size={12} /> {session.user.email}
+                    </p>
+
+                    {/* Stats */}
+                    <div className="grid grid-cols-2 gap-3 w-full mt-5">
+                      <div className="p-3 bg-[var(--bg-panel)] rounded-2xl border border-white/5 flex flex-col items-center gap-1 shadow-md">
+                        <Star className="text-yellow-400" size={20} />
                         <span className="text-lg font-black leading-none">0</span>
-                        <span className="text-[10px] font-bold uppercase opacity-50">Curtidas</span>
+                        <span className="text-[9px] font-bold uppercase opacity-50">Curtidas</span>
                       </div>
-                    </div>
-                    <div className="p-4 bg-[var(--bg-panel)] rounded-2xl border border-white/5 flex flex-col items-center gap-2 shadow-md">
-                      <FileImage className="text-[var(--accent-color)]" size={24} />
-                      <div className="flex flex-col items-center">
+                      <div className="p-3 bg-[var(--bg-panel)] rounded-2xl border border-white/5 flex flex-col items-center gap-1 shadow-md">
+                        <FileImage className="text-[var(--accent-color)]" size={20} />
                         <span className="text-lg font-black leading-none">{savedProjects.length}</span>
-                        <span className="text-[10px] font-bold uppercase opacity-50">Artes</span>
+                        <span className="text-[9px] font-bold uppercase opacity-50">Artes</span>
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
 
-              {/* Right Column: Security & Actions */}
-              <div className="w-full md:w-2/3 flex flex-col gap-6">
-                <div className="bg-[var(--bg-panel)] rounded-[32px] p-6 md:p-8 border border-white/5 shadow-xl">
-                  <h3 className="text-xl font-black mb-6 flex items-center gap-3">
-                    <div className="p-2 bg-[var(--accent-color)]/20 rounded-xl text-[var(--accent-color)]">
-                      <Settings size={20} />
+                  {/* Right Column: Security & Actions */}
+                  <div className="w-full md:w-2/3 flex flex-col gap-5">
+                    {/* Security Card */}
+                    <div className="bg-[var(--bg-panel)] rounded-[28px] p-6 border border-white/5 shadow-xl">
+                      <h3 className="text-lg font-black mb-5 flex items-center gap-3">
+                        <div className="p-2 bg-[var(--accent-color)]/20 rounded-xl"><Shield size={18} className="text-[var(--accent-color)]" /></div>
+                        Segurança
+                      </h3>
+                      <div className="space-y-3">
+                        <input type="password" placeholder="Nova senha" value={newPassword} onChange={e => setNewPassword(e.target.value)}
+                          className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl focus:border-[var(--accent-color)] outline-none font-bold" />
+                        <input type="password" placeholder="Senha atual (confirmação)" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)}
+                          className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl focus:border-[var(--accent-color)] outline-none font-bold" />
+                        <button onClick={handleChangePassword} disabled={!newPassword || !currentPassword}
+                          className="w-full p-4 rounded-2xl font-black border-2 border-[var(--accent-color)] text-[var(--accent-color)] hover:bg-[var(--accent-color)] hover:text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                          ATUALIZAR SENHA
+                        </button>
+                      </div>
                     </div>
-                    Segurança e Conta
-                  </h3>
-                  
-                  <div className="space-y-6">
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-xs font-bold text-[var(--text-muted)] mb-2 pl-2">Nova Senha</label>
-                        <input 
-                          type="password" 
-                          placeholder="Digite a nova senha"
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                          className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl focus:border-[var(--accent-color)] outline-none font-bold"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-[var(--text-muted)] mb-2 pl-2">Confirmar Senha Atual (para alterar)</label>
-                        <input 
-                          type="password" 
-                          placeholder="Digite a senha atual"
-                          value={currentPassword}
-                          onChange={(e) => setCurrentPassword(e.target.value)}
-                          className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl focus:border-[var(--accent-color)] outline-none font-bold"
-                        />
-                      </div>
-                      <button 
-                        onClick={handleChangePassword}
-                        disabled={!newPassword || !currentPassword}
-                        className="w-full p-4 rounded-2xl font-black border-2 border-[var(--accent-color)] text-[var(--accent-color)] hover:bg-[var(--accent-color)] hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        ATUALIZAR SENHA
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-3">
+                      <button onClick={handleSaveProfile}
+                        className="flex-1 bg-[var(--accent-color)] hover:brightness-110 p-4 rounded-[20px] text-white font-black shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all">
+                        <Check size={20} /> SALVAR
+                      </button>
+                      <button onClick={handleSignOut}
+                        className="p-4 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white rounded-[20px] font-black shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
+                        title="Sair da Conta">
+                        <LogOut size={20} /> SAIR
                       </button>
                     </div>
                   </div>
                 </div>
-
-                <div className="flex gap-4">
-                  <button 
-                    onClick={handleSaveProfile}
-                    className="flex-1 bg-[var(--accent-color)] hover:brightness-110 p-5 rounded-[24px] text-white font-black text-lg shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
-                  >
-                    <Check size={24} /> SALVAR PERFIL
-                  </button>
-                  <button 
-                    className="p-5 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-[24px] font-black shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
-                    title="Sair da Conta"
-                  >
-                    <X size={24} />
-                  </button>
-                </div>
-              </div>
+              )}
             </motion.div>
           )}
 
