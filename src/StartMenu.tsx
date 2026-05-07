@@ -516,6 +516,42 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                               />
                             </div>
                           </div>
+
+
+                          {/* Dynamic Canvas Preview */}
+                          <motion.div 
+                            layout
+                            className="flex flex-col items-center gap-3 p-4 bg-black/20 rounded-2xl border border-white/5"
+                          >
+                            <div className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.15em]">
+                              Pré-visualização da Folha
+                            </div>
+                            <div className="relative flex items-center justify-center w-full" style={{ minHeight: '120px', maxHeight: '180px' }}>
+                              <motion.div
+                                layout
+                                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                                className="border-2 border-cyan-500 shadow-lg shadow-cyan-500/20 rounded-sm overflow-hidden"
+                                style={{
+                                  width: `${Math.min(160, Math.max(32, (customWidth / Math.max(customWidth, customHeight)) * 160))}px`,
+                                  height: `${Math.min(160, Math.max(32, (customHeight / Math.max(customWidth, customHeight)) * 160))}px`,
+                                  backgroundImage: 'conic-gradient(rgba(255,255,255,0.05) 90deg, transparent 90deg 180deg, rgba(255,255,255,0.05) 180deg 270deg, transparent 270deg)',
+                                  backgroundSize: '12px 12px',
+                                  backgroundColor: 'rgba(0,0,0,0.2)'
+                                }}
+                              >
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <span className="text-[10px] font-black text-cyan-400 drop-shadow-md" style={{ fontFamily: '"Press Start 2P", monospace' }}>
+                                    {customWidth}×{customHeight}
+                                  </span>
+                                </div>
+                              </motion.div>
+                            </div>
+                            <div className="flex items-center gap-4 text-[10px] text-[var(--text-muted)] font-bold">
+                              <span>{customWidth * customHeight} pixels</span>
+                              <span>•</span>
+                              <span>{customWidth > customHeight ? 'Paisagem' : customWidth < customHeight ? 'Retrato' : 'Quadrado'}</span>
+                            </div>
+                          </motion.div>
                         </motion.div>
                       )}
                     </AnimatePresence>
