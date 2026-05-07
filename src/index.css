@@ -1,0 +1,331 @@
+@import url('https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Press+Start+2P&family=Roboto:wght@400;700&family=Playfair+Display:wght@400;700&family=Montserrat:wght@400;700&display=swap');
+@import "tailwindcss";
+
+* {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  outline: none;
+}
+
+*:focus {
+  outline: none;
+}
+
+
+@theme {
+  --font-sans: "Silkscreen", "Press Start 2P", ui-sans-serif, system-ui, sans-serif;
+  --animate-spin-slow: spin 3s linear infinite;
+}
+
+:root {
+  --bg-app: #0a0a0c;
+  --bg-surface: #141417;
+  --bg-panel: #1c1c21;
+  --bg-element: #25252b;
+  --border-subtle: #2d2d35;
+  --border-strong: #3f3f4a;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --accent-color: #6366f1; /* Professional Indigo */
+  --accent-hover: #4f46e5;
+  --ui-scale: 1;
+}
+
+@media (max-width: 480px) and (orientation: portrait) {
+  :root {
+    --ui-scale: 0.85;
+  }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(0.98); }
+}
+
+.animate-spin-pixel {
+  animation: spin 1s steps(8) infinite;
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+@keyframes scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(calc(-50% - 12px)); }
+}
+
+.animate-scroll {
+  animation: scroll 30s linear infinite;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: linear-gradient(135deg, var(--bg-surface) 0%, var(--bg-app) 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
+  color: var(--text-primary);
+  -webkit-font-smoothing: none;
+  transition: color 0.3s ease;
+}
+
+.pixelated {
+  image-rendering: pixelated;
+}
+
+[draggable] {
+  touch-action: none;
+}
+
+/* Make all SVG icons look blocky/pixelated */
+svg {
+  stroke-linecap: square !important;
+  stroke-linejoin: miter !important;
+  stroke-width: 2.5px !important;
+}
+
+/* Retro Pixel Art Button Styles */
+.pixel-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--accent-color);
+  color: white;
+  font-family: var(--font-sans);
+  text-transform: uppercase;
+  border: 4px solid #000;
+  box-shadow: inset -4px -4px 0px 0px rgba(0,0,0,0.3), inset 4px 4px 0px 0px rgba(255,255,255,0.3);
+  transition: transform 0.1s, box-shadow 0.1s, background-color 0.3s;
+  text-shadow: 2px 2px 0px rgba(0,0,0,0.5);
+}
+
+.pixel-btn:active {
+  transform: translateY(4px);
+  box-shadow: inset -2px -2px 0px 0px rgba(0,0,0,0.3), inset 2px 2px 0px 0px rgba(255,255,255,0.3);
+}
+
+.pixel-btn-green {
+  background-color: #10b981;
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: var(--bg-surface);
+  border-left: 2px solid var(--border-subtle);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border: 2px solid var(--bg-surface);
+  border-radius: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #666;
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) var(--bg-surface);
+}
+
+.pixel-btn-red {
+  background-color: #ef4444;
+}
+
+.pixel-btn-dark {
+  background-color: var(--bg-element);
+  color: var(--text-muted);
+  text-shadow: none;
+}
+
+.pixel-icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-element);
+  color: var(--text-muted);
+  border: 3px solid #000;
+  box-shadow: 2px 2px 6px rgba(0,0,0,0.9), inset -3px -3px 0px 0px rgba(0,0,0,0.3), inset 3px 3px 0px 0px rgba(255,255,255,0.1);
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.pixel-icon-btn:active {
+  transform: scale(0.85) translateY(2px);
+  box-shadow: 1px 1px 2px rgba(0,0,0,0.9), inset -2px -2px 0px 0px rgba(0,0,0,0.3), inset 2px 2px 0px 0px rgba(255,255,255,0.1);
+  transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.pixel-icon-btn.active {
+  background-color: var(--accent-color);
+  color: white;
+  border-color: #fff;
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.4), inset -3px -3px 0px 0px rgba(0,0,0,0.3), inset 3px 3px 0px 0px rgba(255,255,255,0.3);
+  transform: scale(1.05) translateY(-2px);
+  z-index: 10;
+}
+
+.pixel-icon-btn:hover:not(.active) {
+  background-color: var(--border-subtle);
+  color: var(--text-primary);
+  transform: scale(1.05);
+}
+
+.pixel-panel {
+  border: 4px solid #000;
+  box-shadow: 4px 4px 0px 0px #000;
+  background-color: var(--bg-panel);
+  transition: background-color 0.3s, border-color 0.3s;
+}
+
+.pixel-input {
+  border: 4px solid #000;
+  box-shadow: inset 4px 4px 0px 0px rgba(0,0,0,0.5);
+  font-family: var(--font-sans);
+  background-color: var(--bg-element);
+  color: var(--text-primary);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-surface);
+  border-left: 2px solid #000;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border: 2px solid #000;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #666;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Integrated Color Picker Styling */
+.custom-color-picker .react-colorful {
+  width: 100% !important;
+  height: 180px !important;
+  border-radius: 20px !important;
+  border: 4px solid #000 !important;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+.custom-color-picker .react-colorful__pointer {
+  width: 16px !important;
+  height: 16px !important;
+  border-radius: 4px !important;
+  border: 2px solid white !important;
+  box-shadow: 0 0 0 2px black !important;
+}
+
+.custom-color-picker .react-colorful__saturation {
+  border-bottom: 4px solid #000 !important;
+  border-radius: 0 !important;
+}
+
+.custom-color-picker .react-colorful__hue {
+  height: 24px !important;
+  border-radius: 0 !important;
+}
+
+
+/* Tooltip ativo da barra de ferramentas responsivo */
+.active-label-container {
+  position: absolute;
+  bottom: 100%;
+  margin-bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.active-label-arrow {
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 4px solid var(--accent-color);
+}
+
+/* Portrait override specifically for TopBar so it goes below the icon */
+.top-bar .active-label-container {
+  bottom: auto;
+  top: 100%;
+  margin-bottom: 0;
+  margin-top: 4px;
+}
+
+.top-bar .active-label-arrow {
+  border-top: none;
+  border-bottom: 4px solid var(--accent-color);
+  order: -1;
+}
+
+@media (orientation: landscape) {
+  .top-bar .active-label-container {
+    /* Mudar para aparecer embaixo ou em cima, para não ser cortado pelo overflow-x */
+    bottom: auto;
+    top: 100%;
+    left: 50%;
+    margin-left: 0;
+    margin-bottom: 0;
+    margin-top: 4px;
+    transform: translateX(-50%);
+    flex-direction: column;
+  }
+  
+  .top-bar .active-label-arrow {
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: none;
+    border-bottom: 4px solid var(--accent-color);
+    order: -1;
+  }
+
+  .bottom-bar .active-label-container {
+    bottom: auto;
+    top: 50%;
+    right: 100%;
+    left: auto;
+    margin-right: 8px;
+    margin-bottom: 0;
+    transform: translateY(-50%);
+    flex-direction: row-reverse;
+  }
+  
+  .bottom-bar .active-label-arrow {
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    border-left: 4px solid var(--accent-color);
+    border-right: none;
+    order: -1;
+  }
+}

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Dragon Art</string>
+    <string name="title_activity_main">Dragon Art</string>
+    <string name="package_name">com.dragonart.app</string>
+    <string name="custom_url_scheme">com.dragonart.app</string>
+</resources>

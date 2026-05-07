@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dragon Art - Central de Downloads</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --accent: #60a5fa;
+            --bg: #050505;
+            --surface: #111;
+            --text: #ffffff;
+            --text-muted: #888;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Outfit', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 80% 80%, rgba(59, 130, 246, 0.05) 0%, transparent 40%);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background: var(--surface);
+            padding: 3rem 2rem;
+            border: 4px solid var(--primary);
+            box-shadow: 12px 12px 0px rgba(59, 130, 246, 0.3);
+            text-align: center;
+            position: relative;
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            right: -10px;
+            bottom: -10px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            pointer-events: none;
+        }
+
+        h1 {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            color: var(--primary);
+            text-shadow: 4px 4px 0px #000;
+            line-height: 1.4;
+        }
+
+        .version-badge {
+            display: inline-block;
+            background: var(--primary);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.7rem;
+            margin-bottom: 2rem;
+            box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.5);
+        }
+
+        p {
+            color: var(--text-muted);
+            margin-bottom: 2.5rem;
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+
+        .btn-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .btn {
+            background-color: var(--primary);
+            color: white;
+            padding: 1.5rem;
+            font-size: 1.2rem;
+            font-weight: 900;
+            text-decoration: none;
+            text-transform: uppercase;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 6px 6px 0px #000;
+            position: relative;
+            top: 0;
+            left: 0;
+        }
+
+        .btn:hover {
+            top: -2px;
+            left: -2px;
+            box-shadow: 8px 8px 0px #000;
+            background-color: var(--accent);
+        }
+
+        .btn:active {
+            top: 4px;
+            left: 4px;
+            box-shadow: 2px 2px 0px #000;
+        }
+
+        .btn svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .changelog {
+            text-align: left;
+            background: rgba(0,0,0,0.5);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            border: 1px solid rgba(255,255,255,0.1);
+            max-height: 350px;
+            overflow-y: auto;
+        }
+
+        .changelog h3 {
+            font-size: 0.9rem;
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+        }
+
+        .changelog ul {
+            font-size: 0.85rem;
+            color: #ccc;
+            padding-left: 1.2rem;
+            line-height: 1.6;
+        }
+
+        .changelog li {
+            margin-bottom: 0.4rem;
+        }
+
+        .changelog li strong {
+            color: #fff;
+        }
+
+        .changelog::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .changelog::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .changelog::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 2px;
+        }
+
+        .info {
+            margin-top: 3rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+
+        .info-label {
+            font-weight: bold;
+            color: var(--text);
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.1em;
+        }
+
+        .dragon-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            display: block;
+            filter: drop-shadow(0 0 10px var(--primary));
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+            color: #10b981;
+            font-weight: bold;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #10b981;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.5); opacity: 0.5; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <span class="dragon-icon">🐉</span>
+        <h1>DRAGON ART</h1>
+        <div class="version-badge">ATUALIZAÇÃO v1.6.21</div>
+        
+        <div class="changelog">
+            <h3>O que há de novo (v1.6.21):</h3>
+            <ul>
+                <li><strong>⚙️ Configurações Restauradas:</strong> Painel de Configurações totalmente restaurado com as 30 opções de Cores de Fundo (Temas) e atalhos de áudio.</li>
+                <li><strong>📏 Ajuste Personalizado:</strong> Restaurada a capacidade de criar artes com Tamanho Personalizado no menu Início.</li>
+                <li><strong>📱 Design da Navegação Inferior:</strong> Nova barra de navegação inferior com ícone central elevado e recorte curvo mantida.</li>
+            </ul>
+        </div>
+        
+        <div class="status">
+            <div class="status-dot"></div>
+            SERVIDOR ONLINE
+        </div>
+        
+        <div class="btn-container">
+            <a href="DragonArt_v1_6_21.apk" class="btn">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                BAIXAR APP (APK)
+            </a>
+        </div>
+
+        <div class="info">
+            <div class="info-item">
+                <span class="info-label">Atualizado</span>
+                <span>07/05/2026</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Tamanho</span>
+                <span>~68 MB</span>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

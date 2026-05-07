@@ -1,0 +1,14 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+android/app/build/
+android/.gradle/
+android/capacitor.build.gradle
+*.apk
+Backups/
+Ferramentas/interno/download_server/*.apk
