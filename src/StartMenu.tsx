@@ -38,6 +38,14 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
   const [authError, setAuthError] = useState<string | null>(null);
   const [authSuccess, setAuthSuccess] = useState<string | null>(null);  
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+  const [projectGridSize, setProjectGridSize] = useState(() => {
+    const saved = localStorage.getItem('pixel_grid_size');
+    return saved ? parseInt(saved, 10) : 1;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('pixel_grid_size', projectGridSize.toString());
+  }, [projectGridSize]);
   const carouselImages = [
     '/63b2de4429b84bb6e1cc632f2b8b9361.webp',
     '/d8395ee034cea71454588d9427dfcbcd.gif',
@@ -466,21 +474,21 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
     return canvas;
   };
 
-  const shareProject = async (p: ProjectConfig) => {
-    console.log('Share Project triggered for:', p.name);
+  const shareProject = async (p: ProjectConfig, format: 'png' | 'jpeg' = 'png') => {
+    console.log('Share Project triggered for:', p.name, format);
     const scale = Math.max(1, Math.floor(1080 / p.height));
-    const canvas = renderProjectToCanvas(p, 0, scale, 'png');
+    const canvas = renderProjectToCanvas(p, 0, scale, format);
     if (!canvas) {
       console.error('Failed to render project to canvas for sharing');
       return;
     }
     const userName = session?.user?.user_metadata?.display_name || profileName;
     addWatermark(canvas, userName);
-    const dataUrl = canvas.toDataURL('image/png');
+    const dataUrl = canvas.toDataURL(`image/${format}`, format === 'jpeg' ? 0.92 : undefined);
     
     if (Capacitor.isNativePlatform()) {
       try {
-        const fileName = `DragonArt_${Date.now()}.png`;
+        const fileName = `DragonArt_${Date.now()}.${format === 'jpeg' ? 'jpg' : 'png'}`;
         const base64Data = dataUrl.split(',')[1];
         
         // Ensure the directory exists or just use a simpler path
@@ -515,12 +523,11 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
     if (navigator.share && navigator.canShare) {
       try {
         const blob = await (await fetch(dataUrl)).blob();
-        const file = new File([blob], `${p.name}.png`, { type: 'image/png' });
+        const file = new File([blob], `${p.name}.${format === 'jpeg' ? 'jpg' : 'png'}`, { type: `image/${format}` });
         await navigator.share({ title: `${p.name} - DragonArt`, text: `Feito com 🐉 DragonArt por ${userName}`, files: [file] });
         return;
       } catch {}
     }
-    await saveToGallery(dataUrl, `${p.name}-share.png`);
   };
 
   const handleStart = () => {
@@ -570,14 +577,22 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
     setAuthLoading(false);
     if (error) { 
       console.error('Sign Up Error:', error.message);
-      setAuthError(error.message); 
+      let errorMsg = error.message;
+      if (errorMsg === 'Email signups are disabled') {
+         errorMsg = 'Cadastro por e-mail desativado no Supabase. Ative em: Authentication > Providers > Email.';
+      } else if (errorMsg === 'User already registered') {
+         errorMsg = 'Este e-mail já está cadastrado.';
+      } else if (errorMsg === 'Password should be at least 6 characters') {
+         errorMsg = 'A senha deve ter no mínimo 6 caracteres.';
+      }
+      setAuthError(errorMsg); 
       return; 
     }
     console.log('Sign Up Success:', data);
     if (data.session) {
       setAuthSuccess('Conta criada com sucesso!');
     } else {
-      setAuthSuccess('Conta criada! Por favor, faça login.');
+      setAuthSuccess('Conta criada! Verifique sua caixa de entrada (e-mail) para confirmar a conta antes de entrar.');
       setAuthMode('login');
     }
   };
@@ -589,7 +604,13 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
     setAuthLoading(false);
     if (error) { 
       console.error('Sign In Error:', error.message);
-      setAuthError(error.message); 
+      let errorMsg = error.message;
+      if (errorMsg === 'Invalid login credentials') {
+         errorMsg = 'E-mail ou senha incorretos.';
+      } else if (errorMsg === 'Email not confirmed') {
+         errorMsg = 'E-mail não confirmado. Por favor, verifique sua caixa de entrada e clique no link de confirmação.';
+      }
+      setAuthError(errorMsg); 
       return; 
     }
     console.log('Sign In Success:', data.session ? 'Session active' : 'No session');
@@ -785,10 +806,30 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                 </div>
 
                 <div className="lg:col-span-8 flex flex-col gap-6">
-                  <h2 className="text-xl font-black flex items-center gap-3">
-                    <LayersIcon className="text-[var(--accent-color)]" size={24} /> Meus Projetos
-                  </h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <h2 className="text-xl font-black flex items-center gap-3">
+                      <LayersIcon className="text-[var(--accent-color)]" size={24} /> Meus Projetos
+                    </h2>
+                    <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-xl border border-white/10">
+                      <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">Ver:</span>
+                      <input 
+                        type="range" 
+                        min="1" max="5" 
+                        value={projectGridSize} 
+                        onChange={(e) => setProjectGridSize(Number(e.target.value))}
+                        className="w-24 md:w-32 accent-[var(--accent-color)]"
+                      />
+                    </div>
+                  </div>
+                  <div className={`grid gap-4 ${
+                    {
+                      1: "grid-cols-1",
+                      2: "grid-cols-2",
+                      3: "grid-cols-2 sm:grid-cols-3",
+                      4: "grid-cols-3 sm:grid-cols-4 lg:grid-cols-5",
+                      5: "grid-cols-4 sm:grid-cols-5 lg:grid-cols-6",
+                    }[projectGridSize] || "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+                  }`}>
                     {savedProjects.length === 0 ? (
                       <div className="col-span-full py-20 text-center opacity-30 font-bold">Nenhum projeto salvo.</div>
                     ) : (
@@ -858,7 +899,9 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                                   </>)}
                                   {/* Share */}
                                   <div className="h-px bg-white/10 mx-2" />
-                                  <button onClick={(e) => { e.stopPropagation(); shareProject(p); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-blue-600 hover:text-white flex items-center gap-2 transition-colors"><Share2 size={14} /> Compartilhar</button>
+                                  <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider bg-white/5 flex items-center gap-2"><Share2 size={10} /> Compartilhar</div>
+                                  <button onClick={(e) => { e.stopPropagation(); shareProject(p, 'png'); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-blue-600 hover:text-white flex items-center gap-2 transition-colors"><FileImage size={14} /> PNG</button>
+                                  <button onClick={(e) => { e.stopPropagation(); shareProject(p, 'jpeg'); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-blue-600 hover:text-white flex items-center gap-2 transition-colors"><ImageIcon size={14} /> JPG</button>
                                   {/* Project actions */}
                                   <div className="h-px bg-white/10 mx-2" />
                                   <button onClick={(e) => { e.stopPropagation(); duplicateProject(p.id); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors"><Copy size={14} /> Duplicar</button>

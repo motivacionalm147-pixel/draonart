@@ -477,7 +477,7 @@ export default function Editor({
   const [panelStates, setPanelStates] = useState<
     Record<string, { x: number; y: number; w: number; h: number }>
   >({
-    frames: { x: 0, y: 0, w: 600, h: 450 },
+    frames: { x: 0, y: 0, w: 500, h: 320 },
     pencil: { x: 0, y: 0, w: 320, h: 450 },
     colors: { x: 0, y: 0, w: 320, h: 450 },
     layers: { x: 0, y: 0, w: 320, h: 450 },
