@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Trash2, Plus, Download, Palette, Settings, HelpCircle, X, PlayCircle, BookOpen, Pencil, Eraser, PaintBucket, Pipette, Square, Move, Hand, Type, Layers as LayersIcon, Film, Undo, Grid, ZoomIn, Play, Copy, Sun, Moon, Check, Keyboard, Star, FolderOpen, Video, Image as ImageIcon, FileImage, FileVideo, Eye, Expand, User, Users, Home, Menu, LogOut, Shield, Award, Mail, Lock, ChevronRight, Share2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Trash2, Plus, Download, Palette, Settings, HelpCircle, X, PlayCircle, BookOpen, Pencil, Layers as LayersIcon, Film, Play, Copy, Sun, Check, Star, Image as ImageIcon, FileImage, User, Users, Home, LogOut, Shield, Award, Mail, Lock, ChevronRight, Share2 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 import { Toast } from '@capacitor/toast';
 import GIF from 'gif.js';
 import { sound } from './sound';
@@ -20,7 +21,6 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
   const [isCustom, setIsCustom] = useState(false);
   const [savedProjects, setSavedProjects] = useState<ProjectConfig[]>([]);
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
-  const [projectOptionsModal, setProjectOptionsModal] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'home' | 'profile' | 'community'>('home');
   const [profileName, setProfileName] = useState('Artista Pixel');
   const [profileImage, setProfileImage] = useState<string | null>(null);
@@ -474,6 +474,40 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
     addWatermark(canvas, userName);
     const dataUrl = canvas.toDataURL('image/png');
     
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const fileName = `DragonArt_${Date.now()}.png`;
+        const base64Data = dataUrl.split(',')[1];
+        
+        // Ensure the directory exists or just use a simpler path
+        const writeResult = await Filesystem.writeFile({
+          path: fileName,
+          data: base64Data,
+          directory: Directory.Cache
+        });
+        
+        console.log('File written for sharing:', writeResult.uri);
+
+        await Share.share({
+          title: p.name,
+          text: `Confira minha arte "${p.name}" feita no DragonArt por ${userName}! 🐉✨`,
+          url: writeResult.uri,
+          dialogTitle: 'Compartilhar Arte'
+        });
+        return;
+      } catch (err) {
+        console.error('Native share failed:', err);
+        // Fallback to simpler share if URI fails
+        try {
+          await Share.share({
+            title: p.name,
+            text: `Confira minha arte "${p.name}" feita no DragonArt por ${userName}! 🐉✨`,
+            dialogTitle: 'Compartilhar Arte'
+          });
+        } catch (e) {}
+      }
+    }
+
     if (navigator.share && navigator.canShare) {
       try {
         const blob = await (await fetch(dataUrl)).blob();
@@ -504,7 +538,8 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
         setExperienceLevel(s.user.user_metadata.experience_level || 'iniciante');
       }
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
+      console.log('Auth State Change:', event, s ? 'Session found' : 'No session');
       setSession(s);
       if (s?.user?.user_metadata) {
         setProfileName(s.user.user_metadata.display_name || 'Artista Pixel');
@@ -522,22 +557,38 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
   ];
 
   const handleSignUp = async () => {
+    console.log('Attempting Sign Up:', authEmail);
     setAuthLoading(true); setAuthError(null); setAuthSuccess(null);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: authEmail, password: authPassword,
       options: { data: { display_name: registerName, experience_level: experienceLevel } }
     });
     setAuthLoading(false);
-    if (error) { setAuthError(error.message); return; }
-    setAuthSuccess('Conta criada! Verifique seu e-mail ou faça login.');
-    setAuthMode('login');
+    if (error) { 
+      console.error('Sign Up Error:', error.message);
+      setAuthError(error.message); 
+      return; 
+    }
+    console.log('Sign Up Success:', data);
+    if (data.session) {
+      setAuthSuccess('Conta criada com sucesso!');
+    } else {
+      setAuthSuccess('Conta criada! Por favor, faça login.');
+      setAuthMode('login');
+    }
   };
 
   const handleSignIn = async () => {
+    console.log('Attempting Sign In:', authEmail);
     setAuthLoading(true); setAuthError(null); setAuthSuccess(null);
-    const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
+    const { data, error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
     setAuthLoading(false);
-    if (error) { setAuthError(error.message); return; }
+    if (error) { 
+      console.error('Sign In Error:', error.message);
+      setAuthError(error.message); 
+      return; 
+    }
+    console.log('Sign In Success:', data.session ? 'Session active' : 'No session');
     sound.playAction();
   };
 
@@ -738,9 +789,9 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                       <div className="col-span-full py-20 text-center opacity-30 font-bold">Nenhum projeto salvo.</div>
                     ) : (
                       savedProjects.map(p => (
-                        <div key={p.id} className="bg-[var(--bg-panel)] rounded-[28px] border border-white/5 hover:border-[var(--accent-color)]/50 transition-all hover:-translate-y-1 shadow-lg overflow-hidden relative">
+                        <div key={p.id} className="bg-[var(--bg-panel)] rounded-[28px] border border-white/5 hover:border-[var(--accent-color)]/50 transition-all hover:-translate-y-1 shadow-lg relative">
                           <div className="cursor-pointer" onClick={() => onStart(p)}>
-                            <div className="aspect-square bg-white/5 flex items-center justify-center overflow-hidden">
+                            <div className="aspect-square bg-white/5 flex items-center justify-center overflow-hidden rounded-t-[28px]">
                               {p.thumbnail ? <img src={p.thumbnail} className="w-full h-full object-contain image-pixelated" /> : <Palette className="opacity-20" size={40} />}
                             </div>
                           </div>
@@ -780,18 +831,18 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                                   style={{ position: 'absolute', top: '100%', right: 0 }}
                                 >
                                   {/* PNG */}
-                                  <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider bg-white/5 flex items-center gap-2"><FileImage size={10} /> PNG</div>
-                                  <button onClick={(e) => { e.stopPropagation(); downloadProject(p, 'png', 1); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors"><Download size={14} /> 1080p</button>
-                                  <button onClick={(e) => { e.stopPropagation(); downloadProject(p, 'png', 4); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors"><Download size={14} /> 4K</button>
+                                  <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider bg-white/5 flex items-center gap-2"><FileImage size={10} /> Exportar PNG</div>
+                                  <button onClick={(e) => { e.stopPropagation(); downloadProject(p, 'png', 1); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors"><Download size={14} /> Full HD (1080p)</button>
+                                  <button onClick={(e) => { e.stopPropagation(); downloadProject(p, 'png', 4); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors"><Download size={14} /> Ultra HD (4K)</button>
                                   {/* JPG */}
-                                  <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider bg-white/5 flex items-center gap-2"><ImageIcon size={10} /> JPG</div>
-                                  <button onClick={(e) => { e.stopPropagation(); downloadProject(p, 'jpeg', 1); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors"><Download size={14} /> 1080p</button>
-                                  <button onClick={(e) => { e.stopPropagation(); downloadProject(p, 'jpeg', 4); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors"><Download size={14} /> 4K</button>
+                                  <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider bg-white/5 flex items-center gap-2"><ImageIcon size={10} /> Exportar JPG</div>
+                                  <button onClick={(e) => { e.stopPropagation(); downloadProject(p, 'jpeg', 1); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors"><Download size={14} /> Full HD (1080p)</button>
+                                  <button onClick={(e) => { e.stopPropagation(); downloadProject(p, 'jpeg', 4); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors"><Download size={14} /> Ultra HD (4K)</button>
                                   {/* GIF */}
                                   {p.frames && p.frames.length > 1 && (<>
                                     <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider bg-white/5 flex items-center gap-2"><Film size={10} /> GIF Animado</div>
-                                    <button onClick={(e) => { e.stopPropagation(); downloadGif(p, 1); setOpenMenuId(null); }} disabled={exportingId === p.id} className="w-full px-4 py-2 text-sm hover:bg-green-600 hover:text-white flex items-center gap-2 transition-colors disabled:opacity-50"><Film size={14} /> {exportingId === p.id ? 'Exportando...' : '1080p'}</button>
-                                    <button onClick={(e) => { e.stopPropagation(); downloadGif(p, 4); setOpenMenuId(null); }} disabled={exportingId === p.id} className="w-full px-4 py-2 text-sm hover:bg-green-600 hover:text-white flex items-center gap-2 transition-colors disabled:opacity-50"><Film size={14} /> 4K</button>
+                                    <button onClick={(e) => { e.stopPropagation(); downloadGif(p, 1); setOpenMenuId(null); }} disabled={exportingId === p.id} className="w-full px-4 py-2 text-sm hover:bg-green-600 hover:text-white flex items-center gap-2 transition-colors disabled:opacity-50"><Film size={14} /> {exportingId === p.id ? 'Exportando...' : 'Full HD (1080p)'}</button>
+                                    <button onClick={(e) => { e.stopPropagation(); downloadGif(p, 4); setOpenMenuId(null); }} disabled={exportingId === p.id} className="w-full px-4 py-2 text-sm hover:bg-green-600 hover:text-white flex items-center gap-2 transition-colors disabled:opacity-50"><Film size={14} /> Ultra HD (4K)</button>
                                   </>)}
                                   {/* Share */}
                                   <div className="h-px bg-white/10 mx-2" />
