@@ -417,15 +417,51 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
   const addWatermark = (canvas: HTMLCanvasElement, userName: string) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return canvas;
-    const size = Math.max(12, Math.floor(canvas.height * 0.03));
-    ctx.save();
-    ctx.globalAlpha = 0.25;
-    ctx.font = `bold ${size}px "Press Start 2P", monospace`;
-    ctx.fillStyle = '#ffffff';
-    ctx.textBaseline = 'bottom';
+    
+    const size = Math.max(14, Math.floor(canvas.height * 0.035));
+    const padding = size * 0.8;
     const text = `🐉 DragonArt • ${userName}`;
+    
+    ctx.save();
+    ctx.font = `bold ${size}px "Press Start 2P", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
     const metrics = ctx.measureText(text);
-    ctx.fillText(text, canvas.width - metrics.width - size, canvas.height - size);
+    const rectWidth = metrics.width + padding * 2;
+    const rectHeight = size + padding;
+    const x = canvas.width - rectWidth - padding;
+    const y = canvas.height - rectHeight - padding;
+
+    // Draw glassmorphism-style pill background
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle = '#000000';
+    // Rounded rect
+    const r = 12;
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + rectWidth - r, y);
+    ctx.quadraticCurveTo(x + rectWidth, y, x + rectWidth, y + r);
+    ctx.lineTo(x + rectWidth, y + rectHeight - r);
+    ctx.quadraticCurveTo(x + rectWidth, y + rectHeight, x + rectWidth - r, y + rectHeight);
+    ctx.lineTo(x + r, y + rectHeight);
+    ctx.quadraticCurveTo(x, y + rectHeight, x, y + rectHeight - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+    ctx.fill();
+
+    // Subtle white border
+    ctx.globalAlpha = 0.1;
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Draw text with shadow
+    ctx.globalAlpha = 0.9;
+    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+    ctx.shadowBlur = 4;
+    ctx.fillStyle = '#ffffff';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, x + padding, y + rectHeight / 2);
+    
     ctx.restore();
     return canvas;
   };
