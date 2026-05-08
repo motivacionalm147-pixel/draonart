@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Trash2, Plus, Download, Palette, Settings, HelpCircle, X, PlayCircle, BookOpen, Pencil, Eraser, PaintBucket, Pipette, Square, Move, Hand, Type, Layers as LayersIcon, Film, Undo, Grid, ZoomIn, Play, Copy, Sun, Moon, Check, Keyboard, Star, FolderOpen, Video, Image as ImageIcon, FileImage, FileVideo, Eye, Expand, User, Users, Home, Menu, LogOut, Shield, Award, Mail, Lock, ChevronRight } from 'lucide-react';
+import { Trash2, Plus, Download, Palette, Settings, HelpCircle, X, PlayCircle, BookOpen, Pencil, Eraser, PaintBucket, Pipette, Square, Move, Hand, Type, Layers as LayersIcon, Film, Undo, Grid, ZoomIn, Play, Copy, Sun, Moon, Check, Keyboard, Star, FolderOpen, Video, Image as ImageIcon, FileImage, FileVideo, Eye, Expand, User, Users, Home, Menu, LogOut, Shield, Award, Mail, Lock, ChevronRight, Share2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
@@ -411,6 +411,72 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
     }
   };
 
+  const [exportingId, setExportingId] = useState<string | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
+  const deleteProject = (id: string) => {
+    const updated = savedProjects.filter(p => p.id !== id);
+    setSavedProjects(updated);
+    localStorage.setItem('pixel_projects', JSON.stringify(updated));
+    sound.playAction();
+  };
+
+  const duplicateProject = (id: string) => {
+    const original = savedProjects.find(p => p.id === id);
+    if (!original) return;
+    const copy = { ...original, id: generateId(), name: `${original.name} (Cópia)` };
+    const updated = [...savedProjects, copy];
+    setSavedProjects(updated);
+    localStorage.setItem('pixel_projects', JSON.stringify(updated));
+    sound.playAction();
+  };
+
+  const renameProject = (id: string) => {
+    const project = savedProjects.find(p => p.id === id);
+    if (!project) return;
+    const newName = prompt('Novo nome para o projeto:', project.name);
+    if (!newName || newName === project.name) return;
+    const updated = savedProjects.map(p => p.id === id ? { ...p, name: newName } : p);
+    setSavedProjects(updated);
+    localStorage.setItem('pixel_projects', JSON.stringify(updated));
+    sound.playClick();
+  };
+
+  const addWatermark = (canvas: HTMLCanvasElement, userName: string) => {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return canvas;
+    const size = Math.max(12, Math.floor(canvas.height * 0.03));
+    ctx.save();
+    ctx.globalAlpha = 0.25;
+    ctx.font = `bold ${size}px "Press Start 2P", monospace`;
+    ctx.fillStyle = '#ffffff';
+    ctx.textBaseline = 'bottom';
+    const text = `🐉 DragonArt • ${userName}`;
+    const metrics = ctx.measureText(text);
+    ctx.fillText(text, canvas.width - metrics.width - size, canvas.height - size);
+    ctx.restore();
+    return canvas;
+  };
+
+  const shareProject = async (p: ProjectConfig) => {
+    const scale = Math.max(1, Math.floor(1080 / p.height));
+    const canvas = renderProjectToCanvas(p, 0, scale, 'png');
+    if (!canvas) return;
+    const userName = session?.user?.user_metadata?.display_name || profileName;
+    addWatermark(canvas, userName);
+    const dataUrl = canvas.toDataURL('image/png');
+    
+    if (navigator.share && navigator.canShare) {
+      try {
+        const blob = await (await fetch(dataUrl)).blob();
+        const file = new File([blob], `${p.name}.png`, { type: 'image/png' });
+        await navigator.share({ title: `${p.name} - DragonArt`, text: `Feito com 🐉 DragonArt por ${userName}`, files: [file] });
+        return;
+      } catch {}
+    }
+    await saveToGallery(dataUrl, `${p.name}-share.png`);
+  };
+
   const handleStart = () => {
     sound.init();
     sound.playAction();
@@ -664,12 +730,68 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                       <div className="col-span-full py-20 text-center opacity-30 font-bold">Nenhum projeto salvo.</div>
                     ) : (
                       savedProjects.map(p => (
-                        <div key={p.id} onClick={() => onStart(p)} className="bg-[var(--bg-panel)] p-4 rounded-[28px] border border-white/5 hover:border-[var(--accent-color)]/50 cursor-pointer transition-all hover:-translate-y-1 shadow-lg">
-                          <div className="aspect-square bg-white/5 rounded-2xl mb-3 flex items-center justify-center overflow-hidden">
-                             {p.thumbnail ? <img src={p.thumbnail} className="w-full h-full object-contain image-pixelated" /> : <Palette className="opacity-20" size={40} />}
+                        <div key={p.id} className="bg-[var(--bg-panel)] rounded-[28px] border border-white/5 hover:border-[var(--accent-color)]/50 transition-all hover:-translate-y-1 shadow-lg overflow-hidden relative">
+                          <div className="cursor-pointer" onClick={() => onStart(p)}>
+                            <div className="aspect-square bg-white/5 flex items-center justify-center overflow-hidden">
+                              {p.thumbnail ? <img src={p.thumbnail} className="w-full h-full object-contain image-pixelated" /> : <Palette className="opacity-20" size={40} />}
+                            </div>
                           </div>
-                          <h4 className="font-bold truncate text-sm">{p.name}</h4>
-                          <p className="text-[10px] font-bold text-[var(--accent-color)]/60 uppercase">{p.width}x{p.height} Pixels</p>
+                          <div className="p-3 flex items-center justify-between gap-2">
+                            <div className="min-w-0 flex-1" onClick={() => onStart(p)}>
+                              <h4 className="font-bold truncate text-sm cursor-pointer">{p.name}</h4>
+                              <p className="text-[10px] font-bold text-[var(--accent-color)]/60 uppercase">{p.width}x{p.height}px{p.frames && p.frames.length > 1 ? ` • ${p.frames.length}f` : ''}</p>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button onClick={(e) => { e.stopPropagation(); shareProject(p); }} className="p-2 text-white/40 hover:text-[var(--accent-color)] hover:bg-white/5 rounded-xl transition-colors" title="Compartilhar">
+                                <Share2 size={16} />
+                              </button>
+                              <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === p.id ? null : p.id); }} className="p-2 text-white/40 hover:text-white hover:bg-white/5 rounded-xl transition-colors" title="Opções">
+                                <Settings size={16} />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Dropdown Options Menu */}
+                          <AnimatePresence>
+                            {openMenuId === p.id && (
+                              <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                                className="absolute top-full left-0 right-0 mt-1 bg-[var(--bg-panel)] rounded-2xl shadow-2xl border border-white/10 z-50 overflow-hidden" style={{ top: 'auto', bottom: 0, position: 'fixed', left: 'auto', right: 'auto', width: '260px', zIndex: 999 }}>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                          <AnimatePresence>
+                            {openMenuId === p.id && (
+                              <>
+                                <div className="fixed inset-0 z-[998]" onClick={() => setOpenMenuId(null)} />
+                                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+                                  className="absolute right-0 top-full mt-1 bg-[var(--bg-panel)] rounded-2xl shadow-2xl border border-white/10 z-[999] overflow-hidden min-w-[220px]"
+                                  style={{ position: 'absolute', top: '100%', right: 0 }}>
+                                  {/* PNG */}
+                                  <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider bg-white/5 flex items-center gap-2"><FileImage size={10} /> PNG</div>
+                                  <button onClick={(e) => { e.stopPropagation(); downloadProject(p, 'png', 1); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors"><Download size={14} /> 1080p</button>
+                                  <button onClick={(e) => { e.stopPropagation(); downloadProject(p, 'png', 4); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors"><Download size={14} /> 4K</button>
+                                  {/* JPG */}
+                                  <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider bg-white/5 flex items-center gap-2"><ImageIcon size={10} /> JPG</div>
+                                  <button onClick={(e) => { e.stopPropagation(); downloadProject(p, 'jpeg', 1); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors"><Download size={14} /> 1080p</button>
+                                  <button onClick={(e) => { e.stopPropagation(); downloadProject(p, 'jpeg', 4); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors"><Download size={14} /> 4K</button>
+                                  {/* GIF */}
+                                  {p.frames && p.frames.length > 1 && (<>
+                                    <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider bg-white/5 flex items-center gap-2"><Film size={10} /> GIF Animado</div>
+                                    <button onClick={(e) => { e.stopPropagation(); downloadGif(p, 1); setOpenMenuId(null); }} disabled={exportingId === p.id} className="w-full px-4 py-2 text-sm hover:bg-green-600 hover:text-white flex items-center gap-2 transition-colors disabled:opacity-50"><Film size={14} /> {exportingId === p.id ? 'Exportando...' : '1080p'}</button>
+                                    <button onClick={(e) => { e.stopPropagation(); downloadGif(p, 4); setOpenMenuId(null); }} disabled={exportingId === p.id} className="w-full px-4 py-2 text-sm hover:bg-green-600 hover:text-white flex items-center gap-2 transition-colors disabled:opacity-50"><Film size={14} /> 4K</button>
+                                  </>)}
+                                  {/* Share */}
+                                  <div className="h-px bg-white/10 mx-2" />
+                                  <button onClick={(e) => { e.stopPropagation(); shareProject(p); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-blue-600 hover:text-white flex items-center gap-2 transition-colors"><Share2 size={14} /> Compartilhar</button>
+                                  {/* Project actions */}
+                                  <div className="h-px bg-white/10 mx-2" />
+                                  <button onClick={(e) => { e.stopPropagation(); duplicateProject(p.id); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors"><Copy size={14} /> Duplicar</button>
+                                  <button onClick={(e) => { e.stopPropagation(); renameProject(p.id); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors"><Pencil size={14} /> Renomear</button>
+                                  <button onClick={(e) => { e.stopPropagation(); deleteProject(p.id); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm text-red-400 hover:bg-red-500 hover:text-white flex items-center gap-2 transition-colors"><Trash2 size={14} /> Excluir</button>
+                                </motion.div>
+                              </>
+                            )}
+                          </AnimatePresence>
                         </div>
                       ))
                     )}
