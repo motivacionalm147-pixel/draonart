@@ -203,6 +203,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
     } catch (e) {
       console.error("Storage quota exceeded", e);
     }
+    sound.playAction();
   };
 
   const deleteSelectedProjects = () => {
@@ -411,36 +412,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
     }
   };
 
-  const [exportingId, setExportingId] = useState<string | null>(null);
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
-  const deleteProject = (id: string) => {
-    const updated = savedProjects.filter(p => p.id !== id);
-    setSavedProjects(updated);
-    localStorage.setItem('pixel_projects', JSON.stringify(updated));
-    sound.playAction();
-  };
-
-  const duplicateProject = (id: string) => {
-    const original = savedProjects.find(p => p.id === id);
-    if (!original) return;
-    const copy = { ...original, id: generateId(), name: `${original.name} (Cópia)` };
-    const updated = [...savedProjects, copy];
-    setSavedProjects(updated);
-    localStorage.setItem('pixel_projects', JSON.stringify(updated));
-    sound.playAction();
-  };
-
-  const renameProject = (id: string) => {
-    const project = savedProjects.find(p => p.id === id);
-    if (!project) return;
-    const newName = prompt('Novo nome para o projeto:', project.name);
-    if (!newName || newName === project.name) return;
-    const updated = savedProjects.map(p => p.id === id ? { ...p, name: newName } : p);
-    setSavedProjects(updated);
-    localStorage.setItem('pixel_projects', JSON.stringify(updated));
-    sound.playClick();
-  };
 
   const addWatermark = (canvas: HTMLCanvasElement, userName: string) => {
     const ctx = canvas.getContext('2d');
@@ -754,18 +726,23 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                           {/* Dropdown Options Menu */}
                           <AnimatePresence>
                             {openMenuId === p.id && (
-                              <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-                                className="absolute top-full left-0 right-0 mt-1 bg-[var(--bg-panel)] rounded-2xl shadow-2xl border border-white/10 z-50 overflow-hidden" style={{ top: 'auto', bottom: 0, position: 'fixed', left: 'auto', right: 'auto', width: '260px', zIndex: 999 }}>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                          <AnimatePresence>
-                            {openMenuId === p.id && (
                               <>
-                                <div className="fixed inset-0 z-[998]" onClick={() => setOpenMenuId(null)} />
-                                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+                                <motion.div 
+                                  key="menu-backdrop"
+                                  initial={{ opacity: 0 }}
+                                  animate={{ opacity: 1 }}
+                                  exit={{ opacity: 0 }}
+                                  className="fixed inset-0 z-[998]" 
+                                  onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); }} 
+                                />
+                                <motion.div 
+                                  key="menu-content"
+                                  initial={{ opacity: 0, scale: 0.95, y: -10 }} 
+                                  animate={{ opacity: 1, scale: 1, y: 0 }} 
+                                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
                                   className="absolute right-0 top-full mt-1 bg-[var(--bg-panel)] rounded-2xl shadow-2xl border border-white/10 z-[999] overflow-hidden min-w-[220px]"
-                                  style={{ position: 'absolute', top: '100%', right: 0 }}>
+                                  style={{ position: 'absolute', top: '100%', right: 0 }}
+                                >
                                   {/* PNG */}
                                   <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider bg-white/5 flex items-center gap-2"><FileImage size={10} /> PNG</div>
                                   <button onClick={(e) => { e.stopPropagation(); downloadProject(p, 'png', 1); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors"><Download size={14} /> 1080p</button>
