@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, Reorder, useDragControls, AnimatePresence } from 'motion/react';
-import { Plus, Trash2, Film, GripVertical, Clock, ChevronLeft, ChevronRight, Copy, FastForward, Layers, X } from 'lucide-react';
+import { Plus, Trash2, Film, GripVertical, Clock, ChevronLeft, ChevronRight, Copy, FastForward, Layers, X, Zap } from 'lucide-react';
 import { sound } from '../../sound';
 import { generateId } from '../../utils';
 
@@ -29,6 +29,7 @@ interface FramePanelProps {
   onionSkinFuture?: number;
   setOnionSkinFuture?: (val: number) => void;
   deleteAllFrames?: () => void;
+  isPlaying?: boolean;
 }
 
 export const FramePanel: React.FC<FramePanelProps> = ({
@@ -49,7 +50,8 @@ export const FramePanel: React.FC<FramePanelProps> = ({
   setOnionSkinPast,
   onionSkinFuture = 0,
   setOnionSkinFuture,
-  deleteAllFrames
+  deleteAllFrames,
+  isPlaying = false
 }) => {
   // Functions for context menu
   const moveFrame = (idx: number, direction: 'left' | 'right') => {
@@ -168,16 +170,26 @@ export const FramePanel: React.FC<FramePanelProps> = ({
             <button
               onClick={() => { sound.playClick(); setOnionSkin(!onionSkin); }}
               className={`flex items-center justify-between p-2 rounded-xl border transition-all ${
-                onionSkin 
-                  ? 'bg-green-500/10 border-green-500/30 text-green-500' 
-                  : 'bg-white/5 border-white/5 text-white/40'
+                onionSkin && isPlaying
+                  ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 shadow-[0_0_12px_rgba(0,212,255,0.15)]'
+                  : onionSkin 
+                    ? 'bg-green-500/10 border-green-500/30 text-green-500' 
+                    : 'bg-white/5 border-white/5 text-white/40'
               }`}
             >
               <div className="flex items-center gap-1.5">
-                <Layers size={12} />
-                <span className="text-[9px] font-black uppercase">Onion Skin</span>
+                {onionSkin && isPlaying ? <Zap size={12} className="animate-pulse" /> : <Layers size={12} />}
+                <span className="text-[9px] font-black uppercase">
+                  {onionSkin && isPlaying ? 'Motion Trail' : 'Onion Skin'}
+                </span>
               </div>
-              <div className={`w-2 h-2 rounded-full ${onionSkin ? 'bg-green-500 animate-pulse' : 'bg-white/20'}`} />
+              <div className={`w-2 h-2 rounded-full transition-all ${
+                onionSkin && isPlaying 
+                  ? 'bg-cyan-400 animate-pulse shadow-[0_0_6px_rgba(0,212,255,0.6)]' 
+                  : onionSkin 
+                    ? 'bg-green-500 animate-pulse' 
+                    : 'bg-white/20'
+              }`} />
             </button>
           )}
         </div>

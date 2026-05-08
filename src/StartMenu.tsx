@@ -467,9 +467,13 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
   };
 
   const shareProject = async (p: ProjectConfig) => {
+    console.log('Share Project triggered for:', p.name);
     const scale = Math.max(1, Math.floor(1080 / p.height));
     const canvas = renderProjectToCanvas(p, 0, scale, 'png');
-    if (!canvas) return;
+    if (!canvas) {
+      console.error('Failed to render project to canvas for sharing');
+      return;
+    }
     const userName = session?.user?.user_metadata?.display_name || profileName;
     addWatermark(canvas, userName);
     const dataUrl = canvas.toDataURL('image/png');
@@ -801,10 +805,18 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                               <p className="text-[10px] font-bold text-[var(--accent-color)]/60 uppercase">{p.width}x{p.height}px{p.frames && p.frames.length > 1 ? ` • ${p.frames.length}f` : ''}</p>
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
-                              <button onClick={(e) => { e.stopPropagation(); shareProject(p); }} className="p-2 text-white/40 hover:text-[var(--accent-color)] hover:bg-white/5 rounded-xl transition-colors" title="Compartilhar">
+                              <button onClick={(e) => { 
+                                e.stopPropagation(); 
+                                console.log('Direct Share button clicked for:', p.id);
+                                shareProject(p); 
+                              }} className="p-2 text-white/40 hover:text-[var(--accent-color)] hover:bg-white/5 rounded-xl transition-colors" title="Compartilhar">
                                 <Share2 size={16} />
                               </button>
-                              <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === p.id ? null : p.id); }} className="p-2 text-white/40 hover:text-white hover:bg-white/5 rounded-xl transition-colors" title="Opções">
+                              <button onClick={(e) => { 
+                                e.stopPropagation(); 
+                                console.log('Toggle Options Menu for:', p.id, 'Current state:', openMenuId);
+                                setOpenMenuId(openMenuId === p.id ? null : p.id); 
+                              }} className="p-2 text-white/40 hover:text-white hover:bg-white/5 rounded-xl transition-colors" title="Opções">
                                 <Settings size={16} />
                               </button>
                             </div>

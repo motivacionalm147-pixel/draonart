@@ -2087,16 +2087,53 @@ export default function Editor({
           context.globalAlpha = 1.0;
         };
 
-        if (onionSkin && !isPlaying) {
+        if (onionSkin) {
+          // Onion skin now works during both editing AND playback
+          // During playback: creates a professional motion trail effect
+          const baseAlpha = isPlaying ? 0.18 : 0.3;
+          
+          // Past frames - tinted with cyan for motion trail
           for (let i = onionSkinPast; i > 0; i--) {
-            const pIdx = frameIdx - i;
-            if (pIdx >= 0)
-              frameData[pIdx].layers.forEach((l) => drawLayer(l, 0.3 / i));
+            const pIdx = isPlaying 
+              ? ((frameIdx - i) % frameData.length + frameData.length) % frameData.length
+              : frameIdx - i;
+            if (pIdx >= 0 && pIdx < frameData.length && pIdx !== frameIdx) {
+              const alpha = baseAlpha / i;
+              frameData[pIdx].layers.forEach((l) => drawLayer(l, alpha));
+              
+              // Apply tint overlay for past frames
+              if (isPlaying) {
+                context.save();
+                context.globalCompositeOperation = 'source-atop';
+                context.globalAlpha = 0.15 / i;
+                context.fillStyle = '#00d4ff'; // Cyan tint for past
+                context.fillRect(0, 0, c.width, c.height);
+                context.restore();
+                context.globalAlpha = 1.0;
+              }
+            }
           }
+          
+          // Future frames - tinted with magenta for motion trail
           for (let i = onionSkinFuture; i > 0; i--) {
-            const fIdx = frameIdx + i;
-            if (fIdx < frameData.length)
-              frameData[fIdx].layers.forEach((l) => drawLayer(l, 0.3 / i));
+            const fIdx = isPlaying
+              ? (frameIdx + i) % frameData.length
+              : frameIdx + i;
+            if (fIdx >= 0 && fIdx < frameData.length && fIdx !== frameIdx) {
+              const alpha = baseAlpha / i;
+              frameData[fIdx].layers.forEach((l) => drawLayer(l, alpha));
+              
+              // Apply tint overlay for future frames
+              if (isPlaying) {
+                context.save();
+                context.globalCompositeOperation = 'source-atop';
+                context.globalAlpha = 0.15 / i;
+                context.fillStyle = '#ff00d4'; // Magenta tint for future
+                context.fillRect(0, 0, c.width, c.height);
+                context.restore();
+                context.globalAlpha = 1.0;
+              }
+            }
           }
         }
 
@@ -4632,17 +4669,21 @@ export default function Editor({
 
   const shareArt = async (method: "native" | "clipboard" | "download") => {
     setShareStatus("generating");
+    const useJpeg = !transparentBackground;
+    const mimeType = useJpeg ? "image/jpeg" : "image/png";
+    const ext = useJpeg ? "jpg" : "png";
     try {
       const canvas = generateShareCanvas(true);
       const blob = await new Promise<Blob>((resolve, reject) => {
         canvas.toBlob(
           (b) =>
             b ? resolve(b) : reject(new Error("Failed to generate image")),
-          "image/png"
+          mimeType,
+          useJpeg ? 0.95 : undefined
         );
       });
-      const file = new File([blob], `${config.name}.png`, {
-        type: "image/png",
+      const file = new File([blob], `${config.name}.${ext}`, {
+        type: mimeType,
       });
 
       if (method === "native" && navigator.share) {
@@ -4655,13 +4696,13 @@ export default function Editor({
       } else if (method === "clipboard") {
         try {
           await navigator.clipboard.write([
-            new ClipboardItem({ "image/png": blob }),
+            new ClipboardItem({ [mimeType]: blob }),
           ]);
           setShareStatus("success");
         } catch {
           const url = URL.createObjectURL(blob);
           const link = document.createElement("a");
-          link.download = `${config.name}.png`;
+          link.download = `${config.name}.${ext}`;
           link.href = url;
           link.click();
           URL.revokeObjectURL(url);
@@ -4670,7 +4711,7 @@ export default function Editor({
       } else {
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
-        link.download = `${config.name}.png`;
+        link.download = `${config.name}.${ext}`;
         link.href = url;
         link.click();
         URL.revokeObjectURL(url);
@@ -4726,10 +4767,13 @@ export default function Editor({
       ctx.fillText(t.text, t.x * scale, t.y * scale);
     });
 
+    const useJpeg = !transparentBackground;
+    const ext = useJpeg ? "jpg" : "png";
+    const mimeType = useJpeg ? "image/jpeg" : "image/png";
     const fileName = `${config.name}-frame-${
       currentFrame + 1
-    }-${exportResolution}.png`;
-    const dataUrl = canvas.toDataURL("image/png");
+    }-${exportResolution}.${ext}`;
+    const dataUrl = canvas.toDataURL(mimeType, useJpeg ? 0.95 : undefined);
 
     if (Capacitor.isNativePlatform()) {
       await saveToNativeGallery(dataUrl.split(",")[1], fileName);
@@ -4741,7 +4785,7 @@ export default function Editor({
     }
 
     setShowExportModal(false);
-    showSaveToast("📸 Imagem salva na galeria Dragon Art!");
+    showSaveToast(`📸 Imagem salva como ${ext.toUpperCase()} na galeria Dragon Art!`);
   };
 
   const exportSpriteSheet = async () => {
@@ -4783,8 +4827,11 @@ export default function Editor({
       });
     });
 
-    const fileName = `${config.name}-spritesheet-${exportResolution}.png`;
-    const dataUrl = canvas.toDataURL("image/png");
+    const useJpeg = !transparentBackground;
+    const ext = useJpeg ? "jpg" : "png";
+    const mimeType = useJpeg ? "image/jpeg" : "image/png";
+    const fileName = `${config.name}-spritesheet-${exportResolution}.${ext}`;
+    const dataUrl = canvas.toDataURL(mimeType, useJpeg ? 0.95 : undefined);
 
     if (Capacitor.isNativePlatform()) {
       await saveToNativeGallery(dataUrl.split(",")[1], fileName);
@@ -4796,7 +4843,7 @@ export default function Editor({
     }
 
     setShowExportModal(false);
-    showSaveToast("🎞️ Sprite Sheet salva na galeria Dragon Art!");
+    showSaveToast(`🎞️ Sprite Sheet salva como ${ext.toUpperCase()} na galeria Dragon Art!`);
   };
 
   const exportGif = async () => {
@@ -6890,6 +6937,10 @@ export default function Editor({
                   triggerLayerFlash={triggerLayerFlash}
                   width={width}
                   height={height}
+                  transparentBackground={transparentBackground}
+                  setTransparentBackground={setTransparentBackground}
+                  canvasBackgroundColor={canvasBackgroundColor}
+                  setCanvasBackgroundColor={setCanvasBackgroundColor}
                 />
               )}
 
@@ -6913,6 +6964,7 @@ export default function Editor({
                   onionSkinFuture={onionSkinFuture}
                   setOnionSkinFuture={setOnionSkinFuture}
                   deleteAllFrames={deleteAllFrames}
+                  isPlaying={isPlaying}
                 />
               )}
 

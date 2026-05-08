@@ -16,7 +16,9 @@ import {
   Zap,
   Edit2,
   Check,
-  X
+  X,
+  Paintbrush,
+  Image
 } from 'lucide-react';
 import { MiniLayerCanvas } from '../MiniLayerCanvas';
 import { sound } from '../../sound';
@@ -47,6 +49,10 @@ interface LayerPanelProps {
   triggerLayerFlash: (layerId: string) => void;
   width: number;
   height: number;
+  transparentBackground?: boolean;
+  setTransparentBackground?: (val: boolean) => void;
+  canvasBackgroundColor?: string;
+  setCanvasBackgroundColor?: (color: string) => void;
 }
 
 export const LayerPanel: React.FC<LayerPanelProps> = ({
@@ -65,12 +71,131 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({
   moveToLimit,
   triggerLayerFlash,
   width,
-  height
+  height,
+  transparentBackground = false,
+  setTransparentBackground,
+  canvasBackgroundColor = '#ffffff',
+  setCanvasBackgroundColor
 }) => {
   const displayLayers = [...layers].reverse();
+  const bgPresetColors = [
+    '#ffffff', '#f5f5f5', '#e0e0e0', '#1a1a2e', '#0d1117', '#000000',
+    '#fdf6e3', '#f0e6d3', '#d4edda', '#cce5ff', '#f8d7da', '#fff3cd'
+  ];
 
   return (
     <div className="flex flex-col gap-6 p-1">
+      {/* Background Settings Section */}
+      {setTransparentBackground && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col gap-3 p-4 rounded-3xl border-2 border-white/5 bg-white/5"
+        >
+          <div className="flex items-center gap-3 mb-1">
+            <div className="p-2 bg-emerald-500/10 rounded-xl">
+              <Image size={18} className="text-emerald-400" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-sm font-black text-white uppercase tracking-tighter">Fundo do Projeto</span>
+              <span className="text-[10px] text-white/40 font-bold uppercase tracking-widest">
+                {transparentBackground ? 'PNG · Transparente' : 'JPG · Cor sólida'}
+              </span>
+            </div>
+          </div>
+
+          {/* Transparent Toggle */}
+          <button
+            onClick={() => { sound.playClick(); setTransparentBackground(!transparentBackground); }}
+            className={`flex items-center justify-between p-3 rounded-2xl border-2 transition-all active:scale-[0.98] ${
+              transparentBackground
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-[0_0_16px_rgba(16,185,129,0.1)]'
+                : 'bg-white/5 border-white/10 text-white/50 hover:border-white/20'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div className={`w-8 h-8 rounded-xl border-2 overflow-hidden shrink-0 ${
+                transparentBackground ? 'border-emerald-500/40' : 'border-white/20'
+              }`}>
+                {transparentBackground ? (
+                  <div className="w-full h-full" style={{
+                    backgroundImage: 'conic-gradient(#666 90deg, #999 90deg 180deg, #666 180deg 270deg, #999 270deg)',
+                    backgroundSize: '8px 8px'
+                  }} />
+                ) : (
+                  <div className="w-full h-full" style={{ backgroundColor: canvasBackgroundColor }} />
+                )}
+              </div>
+              <div className="flex flex-col items-start">
+                <span className="text-xs font-black uppercase tracking-tight">
+                  {transparentBackground ? 'Fundo Transparente' : 'Fundo Sólido'}
+                </span>
+                <span className="text-[9px] opacity-60 font-bold">
+                  {transparentBackground ? 'Salva como PNG' : 'Salva como JPG'}
+                </span>
+              </div>
+            </div>
+            <div className={`w-12 h-7 rounded-full p-1 transition-all ${
+              transparentBackground ? 'bg-emerald-500' : 'bg-white/10'
+            }`}>
+              <motion.div
+                className="w-5 h-5 bg-white rounded-full shadow-lg"
+                animate={{ x: transparentBackground ? 20 : 0 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+              />
+            </div>
+          </button>
+
+          {/* Background Color Picker (only when NOT transparent) */}
+          {!transparentBackground && setCanvasBackgroundColor && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="flex flex-col gap-3"
+            >
+              <div className="flex items-center gap-2">
+                <Paintbrush size={12} className="text-white/40" />
+                <span className="text-[10px] text-white/40 font-black uppercase tracking-widest">Cor do Fundo</span>
+              </div>
+
+              {/* Color Presets Grid */}
+              <div className="grid grid-cols-6 gap-2">
+                {bgPresetColors.map((color) => (
+                  <button
+                    key={color}
+                    onClick={(e) => { e.stopPropagation(); sound.playClick(); setCanvasBackgroundColor(color); }}
+                    className={`w-full aspect-square rounded-xl border-2 transition-all active:scale-90 hover:scale-105 ${
+                      canvasBackgroundColor === color
+                        ? 'border-[var(--accent-color)] shadow-lg shadow-[var(--accent-color)]/20 scale-110'
+                        : 'border-white/10 hover:border-white/30'
+                    }`}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+
+              {/* Custom Color Input */}
+              <div className="flex items-center gap-3 bg-white/5 rounded-2xl p-3 border border-white/5">
+                <div className="relative">
+                  <input
+                    type="color"
+                    value={canvasBackgroundColor}
+                    onChange={(e) => setCanvasBackgroundColor(e.target.value)}
+                    className="w-10 h-10 rounded-xl cursor-pointer border-2 border-white/20"
+                    style={{ padding: 0 }}
+                  />
+                </div>
+                <div className="flex flex-col flex-1">
+                  <span className="text-[9px] text-white/30 font-black uppercase tracking-widest">Cor Personalizada</span>
+                  <span className="text-sm font-black text-white uppercase tracking-wider">{canvasBackgroundColor}</span>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </motion.div>
+      )}
+
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-[var(--accent-color)]/10 rounded-xl">
