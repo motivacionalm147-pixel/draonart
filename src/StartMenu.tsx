@@ -603,7 +603,8 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
         .from('posts')
         .select(`
           id, title, image_url, likes, created_at,
-          profiles (display_name, experience_level, is_pro)
+          profiles (display_name, experience_level, is_pro),
+          comments (id, content, profiles (display_name))
         `)
         .order('created_at', { ascending: false })
         .limit(20);
@@ -1389,10 +1390,24 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                         <Star size={32} className="text-yellow-300" />
                       </div>
                       <h3 className="font-black text-black uppercase tracking-widest text-lg mb-2">Painel Web</h3>
-                      <p className="text-black/80 font-bold text-xs">Curta, comente e veja os selos animados na nossa rede social!</p>
+                      <p className="text-black/80 font-bold text-xs">Curta, comente e veja selos na nossa rede social!</p>
                     </div>
                     <div className="bg-black/20 p-4 text-center font-black text-white text-xs tracking-widest flex justify-center items-center gap-2">
-                      ACESSAR AQUI <ArrowRight size={14} />
+                      ACESSAR REDE SOCIAL <ArrowRight size={14} />
+                    </div>
+                  </div>
+
+                  {/* Banner do Discord */}
+                  <div onClick={() => window.open('https://discord.gg/gFvckFY5', '_blank')} className="bg-gradient-to-br from-[#5865F2] to-[#4752C4] rounded-[32px] overflow-hidden flex flex-col cursor-pointer hover:scale-[1.02] transition-transform shadow-lg group relative border border-white/20">
+                    <div className="flex-1 p-6 flex flex-col items-center justify-center text-center">
+                      <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <Users size={32} className="text-white" />
+                      </div>
+                      <h3 className="font-black text-white uppercase tracking-widest text-lg mb-2">Discord</h3>
+                      <p className="text-white/80 font-bold text-xs">Participe do nosso servidor oficial do Dragon Art!</p>
+                    </div>
+                    <div className="bg-black/20 p-4 text-center font-black text-white text-xs tracking-widest flex justify-center items-center gap-2">
+                      ENTRAR NO DISCORD <ArrowRight size={14} />
                     </div>
                   </div>
                   {communityPosts.map((post) => (
@@ -1424,6 +1439,34 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                             <span className="text-[10px] font-bold">{post.likes || 0}</span>
                           </div>
                         </div>
+
+                        {/* Comentários na visualização do App */}
+                        {post.comments && post.comments.length > 0 && (
+                          <div className="mt-3 pt-3 border-t border-white/5 flex flex-col gap-2 max-h-[100px] overflow-y-auto custom-scrollbar">
+                            {post.comments.slice(0, 3).map((comment: any) => (
+                              <div key={comment.id} className="bg-black/20 rounded-lg p-2 text-xs">
+                                <span className="font-bold text-[var(--accent-color)] mr-1">
+                                  {comment.profiles?.display_name || 'Usuário'}:
+                                </span>
+                                <span className="text-gray-300">{comment.content}</span>
+                              </div>
+                            ))}
+                            {post.comments.length > 3 && (
+                              <div className="text-[9px] text-gray-500 font-bold text-center mt-1 cursor-pointer hover:text-white" onClick={() => window.open(CONFIG.WEB_URL ? `${CONFIG.WEB_URL}/dashboard` : 'https://dragonart.vercel.app/dashboard', '_blank')}>
+                                Ver mais {post.comments.length - 3} comentários na Web...
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        
+                        {(!post.comments || post.comments.length === 0) && (
+                          <div className="mt-3 pt-3 border-t border-white/5 text-center">
+                            <span className="text-[9px] text-gray-500 font-bold cursor-pointer hover:text-[var(--accent-color)]" onClick={() => window.open(CONFIG.WEB_URL ? `${CONFIG.WEB_URL}/dashboard` : 'https://dragonart.vercel.app/dashboard', '_blank')}>
+                              Seja o primeiro a comentar na Web!
+                            </span>
+                          </div>
+                        )}
+                        
                       </div>
                     </motion.div>
                   ))}
