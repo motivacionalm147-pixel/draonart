@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
-import { Heart, User as UserIcon, Home, Compass, Trophy, Settings, LogOut, Image as ImageIcon, MessageSquare, Send } from 'lucide-react';
+import { Heart, User as UserIcon, Home, Compass, Trophy, Settings, LogOut, Image as ImageIcon, MessageSquare, Send, MonitorSmartphone } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { CONFIG } from '../config';
 import { BADGES } from '../data/badges';
