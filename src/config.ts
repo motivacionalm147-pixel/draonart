@@ -20,5 +20,5 @@ export const CONFIG = {
   
   // LINK DO SITE OFICIAL NA VERCEL
   // Substitua por sua URL real da Vercel (ex: https://draonart.vercel.app)
-  WEB_URL: "https://draonart.vercel.app",
+  WEB_URL: "https://draonart-q0wcpaaof-motivacionalm147-pixels-projects.vercel.app",
 };

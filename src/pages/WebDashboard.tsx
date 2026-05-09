@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
-import { Heart, User as UserIcon, Home, Compass, Trophy, Settings, LogOut, Image as ImageIcon, MessageSquare, Send, MonitorSmartphone } from 'lucide-react';
+import { Heart, User as UserIcon, Home, Compass, Trophy, Settings, LogOut, Image as ImageIcon, MessageSquare, Send, MonitorSmartphone, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { CONFIG } from '../config';
 import { BADGES } from '../data/badges';
@@ -47,7 +47,7 @@ export default function WebDashboard() {
     const fetchPosts = async () => {
       const { data, error } = await supabase
         .from('posts')
-        .select(`id, title, image_url, likes, created_at, profiles:user_id (id, display_name, is_pro, badge)`)
+        .select(`id, title, image_url, likes, created_at, profiles (id, display_name, is_pro, badge)`)
         .order('created_at', { ascending: false })
         .limit(20);
       if (!error && data) setPosts(data);
@@ -92,7 +92,7 @@ export default function WebDashboard() {
     if (!comments[postId]) {
       const { data } = await supabase
         .from('comments')
-        .select(`id, content, created_at, profiles:user_id (display_name, badge, is_pro)`)
+        .select(`id, content, created_at, profiles (display_name, badge, is_pro)`)
         .eq('post_id', postId)
         .order('created_at', { ascending: true });
       if (data) {
@@ -104,7 +104,7 @@ export default function WebDashboard() {
   const submitComment = async (postId: string) => {
     if (!commentInput.trim() || !user) return;
     const newComment = { post_id: postId, user_id: user.id, content: commentInput.trim() };
-    const { data, error } = await supabase.from('comments').insert(newComment).select(`id, content, created_at, profiles:user_id (display_name, badge, is_pro)`).single();
+    const { data, error } = await supabase.from('comments').insert(newComment).select(`id, content, created_at, profiles (display_name, badge, is_pro)`).single();
     if (!error && data) {
       setComments(prev => ({ ...prev, [postId]: [...(prev[postId] || []), data] }));
       setCommentInput('');
@@ -286,12 +286,36 @@ export default function WebDashboard() {
 
         {/* Right Sidebar */}
         <aside className="w-72 hidden lg:flex flex-col gap-6 sticky top-24 h-max">
-          <div className="bg-gradient-to-br from-green-500/10 to-emerald-600/10 rounded-2xl border border-green-500/20 p-5 relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-2 opacity-20"><MonitorSmartphone size={64}/></div>
-            <h3 className="font-black text-lg mb-2 text-green-400 relative z-10">App Oficial</h3>
-            <p className="text-sm text-gray-400 mb-4 relative z-10">Instale o Dragon Art no seu Android e poste suas artes direto para este feed.</p>
-            <button onClick={() => window.open(CONFIG.DOWNLOAD_APK_URL)} className="w-full py-2.5 bg-green-500 text-black font-black uppercase text-xs rounded-xl hover:bg-green-400 transition-colors relative z-10">
-              Baixar APK
+          {/* Versão Beta */}
+          <div className="bg-[#0a0a0a] rounded-2xl border border-[#222] p-5 relative overflow-hidden group hover:border-gray-500 transition-colors">
+            <h3 className="font-black text-lg mb-2 text-white relative z-10 flex items-center gap-2">
+              <MonitorSmartphone size={20} /> Dragon Art Beta
+            </h3>
+            <p className="text-xs text-gray-400 mb-4 relative z-10">
+              Crie pixel arts básicas. Paletas de cores e ferramentas avançadas são limitadas nesta versão.
+            </p>
+            <button onClick={() => window.open(CONFIG.DOWNLOAD_APK_URL)} className="w-full py-2.5 bg-gray-800 text-white font-black uppercase text-xs rounded-xl hover:bg-gray-700 transition-colors relative z-10 border border-gray-600">
+              Baixar Beta (Grátis)
+            </button>
+          </div>
+
+          {/* Versão PRO */}
+          <div className="bg-gradient-to-br from-green-500/10 to-emerald-600/10 rounded-2xl border border-green-500/30 p-5 relative overflow-hidden group">
+            <div className="absolute -top-4 -right-4 p-2 opacity-10 group-hover:scale-110 group-hover:rotate-12 transition-transform"><Trophy size={100}/></div>
+            <h3 className="font-black text-xl mb-2 text-green-400 relative z-10 flex items-center gap-2">
+              DRAGON ART <span className="bg-green-500 text-black px-1.5 py-0.5 rounded text-[10px] uppercase font-black tracking-widest">PRO</span>
+            </h3>
+            <p className="text-sm text-gray-300 mb-4 relative z-10 font-bold">
+              Desbloqueie o potencial máximo!
+            </p>
+            <ul className="text-xs text-gray-400 mb-6 relative z-10 space-y-2">
+              <li className="flex items-center gap-2"><Check size={14} className="text-green-500" /> Todas as Paletas Desbloqueadas</li>
+              <li className="flex items-center gap-2"><Check size={14} className="text-green-500" /> Selos Exclusivos (Fogo, Diamante)</li>
+              <li className="flex items-center gap-2"><Check size={14} className="text-green-500" /> Sem limites de camadas</li>
+              <li className="flex items-center gap-2"><Check size={14} className="text-green-500" /> Acesso total à Comunidade Web</li>
+            </ul>
+            <button onClick={() => window.open(CONFIG.STRIPE_PRO_LINK)} className="w-full py-3 bg-green-500 text-black font-black uppercase text-xs rounded-xl hover:bg-green-400 hover:scale-105 transition-all relative z-10 shadow-[0_0_15px_rgba(34,197,94,0.4)]">
+              Desbloquear PRO Agora
             </button>
           </div>
         </aside>
