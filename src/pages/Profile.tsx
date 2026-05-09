@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { User, LogOut, Star, Shield, ArrowLeft } from 'lucide-react';
 import { CONFIG } from '../config';
+import { BADGES } from '../data/badges';
 
 export default function Profile() {
   const [profile, setProfile] = useState<any>(null);
@@ -53,8 +54,17 @@ export default function Profile() {
           <div className="absolute top-0 right-0 w-64 h-64 bg-green-500/10 blur-3xl rounded-full translate-x-1/2 -translate-y-1/2"></div>
           
           <div className="flex flex-col md:flex-row items-center md:items-start gap-8 relative z-10">
-            <div className="w-32 h-32 rounded-full bg-[#222] border-4 border-[#333] flex items-center justify-center">
-              <User size={48} className="text-gray-500" />
+            <div className="w-32 h-32 rounded-full bg-[#222] border-4 border-[#333] flex items-center justify-center relative shadow-2xl">
+              {profile?.badge ? (
+                <>
+                  {BADGES.find(b => b.id === profile.badge)?.glow && (
+                    <div className="absolute inset-0 rounded-full scale-150 blur-xl pointer-events-none" style={{ background: \`radial-gradient(circle, \${BADGES.find(b => b.id === profile.badge)?.glow} 0%, transparent 70%)\`, opacity: 0.6 }}></div>
+                  )}
+                  <img src={BADGES.find(b => b.id === profile.badge)?.image} className="w-20 h-20 object-contain relative z-10" alt="Selo" style={{ filter: BADGES.find(b => b.id === profile.badge)?.glow ? \`drop-shadow(0 0 10px \${BADGES.find(b => b.id === profile.badge)?.glow})\` : 'none' }} />
+                </>
+              ) : (
+                <User size={48} className="text-gray-500" />
+              )}
             </div>
 
             <div className="flex-1 text-center md:text-left space-y-4">
