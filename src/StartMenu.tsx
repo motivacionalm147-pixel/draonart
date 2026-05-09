@@ -1383,33 +1383,6 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                 </div>
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                  {/* Banner redirecionamento WebDashboard */}
-                  <div onClick={() => window.open(`${CONFIG.WEB_URL}/#/dashboard`, '_blank')} className="bg-gradient-to-br from-[var(--accent-color)] to-emerald-600 rounded-[32px] overflow-hidden flex flex-col cursor-pointer hover:scale-[1.02] transition-transform shadow-lg group relative border border-white/20">
-                    <div className="flex-1 p-6 flex flex-col items-center justify-center text-center">
-                      <div className="w-16 h-16 bg-black/20 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                        <Star size={32} className="text-yellow-300" />
-                      </div>
-                      <h3 className="font-black text-black uppercase tracking-widest text-lg mb-2">Painel Web</h3>
-                      <p className="text-black/80 font-bold text-xs">Curta, comente e veja selos na nossa rede social!</p>
-                    </div>
-                    <div className="bg-black/20 p-4 text-center font-black text-white text-xs tracking-widest flex justify-center items-center gap-2">
-                      ACESSAR REDE SOCIAL <ArrowRight size={14} />
-                    </div>
-                  </div>
-
-                  {/* Banner do Discord */}
-                  <div onClick={() => window.open('https://discord.gg/gFvckFY5', '_blank')} className="bg-gradient-to-br from-[#5865F2] to-[#4752C4] rounded-[32px] overflow-hidden flex flex-col cursor-pointer hover:scale-[1.02] transition-transform shadow-lg group relative border border-white/20">
-                    <div className="flex-1 p-6 flex flex-col items-center justify-center text-center">
-                      <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                        <Users size={32} className="text-white" />
-                      </div>
-                      <h3 className="font-black text-white uppercase tracking-widest text-lg mb-2">Discord</h3>
-                      <p className="text-white/80 font-bold text-xs">Participe do nosso servidor oficial do Dragon Art!</p>
-                    </div>
-                    <div className="bg-black/20 p-4 text-center font-black text-white text-xs tracking-widest flex justify-center items-center gap-2">
-                      ENTRAR NO DISCORD <ArrowRight size={14} />
-                    </div>
-                  </div>
                   {communityPosts.map((post) => (
                     <motion.div 
                       layout
@@ -1451,21 +1424,21 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                                 <span className="text-gray-300">{comment.content}</span>
                               </div>
                             ))}
-                            {post.comments.length > 3 && (
-                              <div className="text-[9px] text-gray-500 font-bold text-center mt-1 cursor-pointer hover:text-white" onClick={() => window.open(`${CONFIG.WEB_URL}/#/dashboard`, '_blank')}>
-                                Ver mais {post.comments.length - 3} comentários na Web...
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        
-                        {(!post.comments || post.comments.length === 0) && (
-                          <div className="mt-3 pt-3 border-t border-white/5 text-center">
-                            <span className="text-[9px] text-gray-500 font-bold cursor-pointer hover:text-[var(--accent-color)]" onClick={() => window.open(`${CONFIG.WEB_URL}/#/dashboard`, '_blank')}>
-                              Seja o primeiro a comentar na Web!
-                            </span>
-                          </div>
-                        )}
+                              {post.comments.length > 3 && (
+                                <div className="text-[9px] text-gray-500 font-bold text-center mt-1">
+                                  Ver mais {post.comments.length - 3} comentários...
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          
+                          {(!post.comments || post.comments.length === 0) && (
+                            <div className="mt-3 pt-3 border-t border-white/5 text-center">
+                              <span className="text-[9px] text-gray-500 font-bold">
+                                Sem comentários ainda.
+                              </span>
+                            </div>
+                          )}
                         
                       </div>
                     </motion.div>
