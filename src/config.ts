@@ -17,4 +17,8 @@ export const CONFIG = {
   
   // CONFIGURAÇÕES DA COMUNIDADE
   MAX_POSTS_PER_PAGE: 20,
+  
+  // LINK DO SITE OFICIAL NA VERCEL
+  // Substitua por sua URL real da Vercel (ex: https://draonart.vercel.app)
+  WEB_URL: "https://draonart.vercel.app",
 };

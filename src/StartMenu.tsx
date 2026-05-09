@@ -1384,7 +1384,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                   {/* Banner redirecionamento WebDashboard */}
-                  <div onClick={() => window.open(CONFIG.WEB_URL ? `${CONFIG.WEB_URL}/dashboard` : 'https://dragonart.vercel.app/dashboard', '_blank')} className="bg-gradient-to-br from-[var(--accent-color)] to-emerald-600 rounded-[32px] overflow-hidden flex flex-col cursor-pointer hover:scale-[1.02] transition-transform shadow-lg group relative border border-white/20">
+                  <div onClick={() => window.open(`${CONFIG.WEB_URL}/dashboard`, '_blank')} className="bg-gradient-to-br from-[var(--accent-color)] to-emerald-600 rounded-[32px] overflow-hidden flex flex-col cursor-pointer hover:scale-[1.02] transition-transform shadow-lg group relative border border-white/20">
                     <div className="flex-1 p-6 flex flex-col items-center justify-center text-center">
                       <div className="w-16 h-16 bg-black/20 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                         <Star size={32} className="text-yellow-300" />
@@ -1452,7 +1452,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                               </div>
                             ))}
                             {post.comments.length > 3 && (
-                              <div className="text-[9px] text-gray-500 font-bold text-center mt-1 cursor-pointer hover:text-white" onClick={() => window.open(CONFIG.WEB_URL ? `${CONFIG.WEB_URL}/dashboard` : 'https://dragonart.vercel.app/dashboard', '_blank')}>
+                              <div className="text-[9px] text-gray-500 font-bold text-center mt-1 cursor-pointer hover:text-white" onClick={() => window.open(`${CONFIG.WEB_URL}/dashboard`, '_blank')}>
                                 Ver mais {post.comments.length - 3} comentários na Web...
                               </div>
                             )}
@@ -1461,7 +1461,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                         
                         {(!post.comments || post.comments.length === 0) && (
                           <div className="mt-3 pt-3 border-t border-white/5 text-center">
-                            <span className="text-[9px] text-gray-500 font-bold cursor-pointer hover:text-[var(--accent-color)]" onClick={() => window.open(CONFIG.WEB_URL ? `${CONFIG.WEB_URL}/dashboard` : 'https://dragonart.vercel.app/dashboard', '_blank')}>
+                            <span className="text-[9px] text-gray-500 font-bold cursor-pointer hover:text-[var(--accent-color)]" onClick={() => window.open(`${CONFIG.WEB_URL}/dashboard`, '_blank')}>
                               Seja o primeiro a comentar na Web!
                             </span>
                           </div>
