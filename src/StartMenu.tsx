@@ -12,6 +12,7 @@ import { themes, applyTheme } from './theme';
 import { generateId } from './utils';
 import { supabase } from './lib/supabase';
 import type { Session } from '@supabase/supabase-js';
+import { CONFIG } from './config';
 
 export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig) => void }) {
   const [name, setName] = useState('My Pixel Art');
@@ -20,8 +21,10 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
   const [customHeight, setCustomHeight] = useState(16);
   const [isCustom, setIsCustom] = useState(false);
   const [savedProjects, setSavedProjects] = useState<ProjectConfig[]>([]);
-  const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'home' | 'profile' | 'community'>('home');
+  const [communityPosts, setCommunityPosts] = useState<any[]>([]);
+  const [loadingCommunity, setLoadingCommunity] = useState(false);
+  const [isPosting, setIsPosting] = useState(false);
   const [profileName, setProfileName] = useState('Artista Pixel');
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -40,7 +43,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [projectGridSize, setProjectGridSize] = useState(() => {
     const saved = localStorage.getItem('pixel_grid_size');
-    return saved ? parseInt(saved, 10) : 1;
+    return saved ? parseInt(saved, 10) : 3;
   });
 
   useEffect(() => {
@@ -560,6 +563,81 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
     return () => subscription.unsubscribe();
   }, []);
 
+  const fetchCommunityPosts = async () => {
+    setLoadingCommunity(true);
+    try {
+      const { data, error } = await supabase
+        .from('posts')
+        .select(`
+          id, title, image_url, likes, created_at,
+          profiles (display_name, experience_level, is_pro)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      
+      if (!error && data) setCommunityPosts(data);
+    } catch (err) {
+      console.error('Erro ao buscar posts:', err);
+    } finally {
+      setLoadingCommunity(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'community') {
+      fetchCommunityPosts();
+    }
+  }, [activeTab]);
+
+  const handlePostToCommunity = async (project: ProjectConfig) => {
+    if (!session) {
+      setAuthError('Você precisa estar logado para postar na comunidade.');
+      setActiveTab('profile');
+      return;
+    }
+
+    if (!project.thumbnail) {
+      alert('Este projeto não tem uma miniatura. Abra e salve o projeto primeiro.');
+      return;
+    }
+
+    setIsPosting(true);
+    try {
+      // 1. Converter base64 da thumbnail para Blob
+      const res = await fetch(project.thumbnail);
+      const blob = await res.blob();
+      const fileName = `${session.user.id}/${Date.now()}.png`;
+
+      // 2. Upload para o storage do Supabase (bucket 'arts')
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('arts')
+        .upload(fileName, blob, { contentType: 'image/png' });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage.from('arts').getPublicUrl(fileName);
+
+      // 3. Inserir na tabela 'posts'
+      const { error: insertError } = await supabase
+        .from('posts')
+        .insert({
+          user_id: session.user.id,
+          title: project.name,
+          image_url: publicUrl
+        });
+
+      if (insertError) throw insertError;
+
+      alert('Arte postada com sucesso na comunidade! 🐉✨');
+      if (activeTab === 'community') fetchCommunityPosts();
+    } catch (err: any) {
+      console.error('Erro ao postar:', err);
+      alert('Erro ao postar: ' + (err.message || 'Erro desconhecido'));
+    } finally {
+      setIsPosting(false);
+    }
+  };
+
   const experienceLevels = [
     { id: 'iniciante' as const, label: 'Iniciante', icon: '🌱', desc: 'Começando no pixel art' },
     { id: 'intermediario' as const, label: 'Intermediário', icon: '⚡', desc: 'Já domino o básico' },
@@ -679,7 +757,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                         DRAGONART
                       </h1>
                       <div className="mt-2 flex items-center gap-3">
-                        <span className="text-[10px] font-black text-[var(--accent-color)] uppercase tracking-widest bg-[var(--accent-color)]/10 px-2 py-1 rounded-md border border-[var(--accent-color)]/20">Studio v1.6.17</span>
+                        <span className="text-[10px] font-black text-[var(--accent-color)] uppercase tracking-widest bg-[var(--accent-color)]/10 px-2 py-1 rounded-md border border-[var(--accent-color)]/20">Studio v{CONFIG.VERSION}</span>
                       </div>
                     </div>
                   </div>
@@ -907,6 +985,14 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                                   <button onClick={(e) => { e.stopPropagation(); duplicateProject(p.id); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors"><Copy size={14} /> Duplicar</button>
                                   <button onClick={(e) => { e.stopPropagation(); renameProject(p.id); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors"><Pencil size={14} /> Renomear</button>
                                   <button onClick={(e) => { e.stopPropagation(); deleteProject(p.id); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm text-red-400 hover:bg-red-500 hover:text-white flex items-center gap-2 transition-colors"><Trash2 size={14} /> Excluir</button>
+                                  <div className="h-px bg-white/10 mx-2" />
+                                  <button 
+                                    onClick={(e) => { e.stopPropagation(); handlePostToCommunity(p); setOpenMenuId(null); }} 
+                                    disabled={isPosting}
+                                    className="w-full px-4 py-2 text-sm text-green-400 hover:bg-green-500 hover:text-white flex items-center gap-2 transition-colors disabled:opacity-50"
+                                  >
+                                    <Share size={14} /> {isPosting ? 'Postando...' : 'Postar na Comunidade'}
+                                  </button>
                                 </motion.div>
                               </>
                             )}
@@ -1094,16 +1180,26 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex gap-3">
-                      <button onClick={handleSaveProfile}
-                        className="flex-1 bg-[var(--accent-color)] hover:brightness-110 p-4 rounded-[20px] text-white font-black shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all">
-                        <Check size={20} /> SALVAR
-                      </button>
-                      <button onClick={handleSignOut}
-                        className="p-4 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white rounded-[20px] font-black shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
-                        title="Sair da Conta">
-                        <LogOut size={20} /> SAIR
-                      </button>
+                    <div className="flex flex-col gap-3">
+                      {!session?.user?.user_metadata?.is_pro && (
+                        <button 
+                          onClick={() => window.open(CONFIG.STRIPE_PRO_LINK, '_blank')}
+                          className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 hover:brightness-110 p-5 rounded-[20px] text-black font-black shadow-[0_0_20px_rgba(251,191,36,0.4)] flex items-center justify-center gap-2 active:scale-95 transition-all mb-2"
+                        >
+                          <Star size={24} className="fill-black" /> SEJA DRAGON ART PRO
+                        </button>
+                      )}
+                      <div className="flex gap-3">
+                        <button onClick={handleSaveProfile}
+                          className="flex-1 bg-[var(--accent-color)] hover:brightness-110 p-4 rounded-[20px] text-white font-black shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all">
+                          <Check size={20} /> SALVAR
+                        </button>
+                        <button onClick={handleSignOut}
+                          className="p-4 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white rounded-[20px] font-black shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
+                          title="Sair da Conta">
+                          <LogOut size={20} /> SAIR
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1124,27 +1220,71 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                   <h2 className="text-3xl font-black text-white" style={{ textShadow: '2px 2px 0 #000' }}>Comunidade</h2>
                   <p className="text-xs font-bold text-[var(--accent-color)] uppercase tracking-widest mt-1">Galeria Global de Artistas</p>
                 </div>
+                <button 
+                  onClick={fetchCommunityPosts}
+                  disabled={loadingCommunity}
+                  className="p-3 bg-white/5 hover:bg-white/10 rounded-full text-[var(--accent-color)] transition-all active:rotate-180"
+                >
+                  <RefreshCw size={20} className={loadingCommunity ? 'animate-spin' : ''} />
+                </button>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
-                  <div key={i} className="bg-[var(--bg-panel)] rounded-[32px] border border-white/5 overflow-hidden animate-pulse">
-                    <div className="aspect-square bg-white/5" />
-                    <div className="p-4 space-y-3">
-                      <div className="h-4 bg-white/10 rounded-full w-3/4" />
-                      <div className="h-3 bg-white/5 rounded-full w-1/2" />
+              {loadingCommunity && communityPosts.length === 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                    <div key={i} className="bg-[var(--bg-panel)] rounded-[32px] border border-white/5 overflow-hidden animate-pulse">
+                      <div className="aspect-square bg-white/5" />
+                      <div className="p-4 space-y-3">
+                        <div className="h-4 bg-white/10 rounded-full w-3/4" />
+                        <div className="h-3 bg-white/5 rounded-full w-1/2" />
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex flex-col items-center justify-center py-20 text-center bg-white/5 rounded-[48px] border border-dashed border-white/10">
-                <div className="w-20 h-20 bg-[var(--accent-color)]/10 rounded-full flex items-center justify-center mb-6">
-                  <Sun className="text-[var(--accent-color)] animate-spin-slow" size={40} />
+                  ))}
                 </div>
-                <h3 className="text-2xl font-black text-white mb-3">Conectando ao DragonCloud...</h3>
-                <p className="text-sm text-[var(--text-muted)] max-w-xs font-bold">A comunidade online está sendo preparada para a v2.0! Em breve você poderá compartilhar suas artes.</p>
-              </div>
+              ) : communityPosts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-center bg-white/5 rounded-[48px] border border-dashed border-white/10">
+                  <div className="w-20 h-20 bg-[var(--accent-color)]/10 rounded-full flex items-center justify-center mb-6">
+                    <Sun size={40} className="text-[var(--accent-color)]" />
+                  </div>
+                  <h3 className="text-2xl font-black text-white mb-3">Ainda não há artes...</h3>
+                  <p className="text-sm text-[var(--text-muted)] max-w-xs font-bold">Seja o primeiro a postar na comunidade v1.7.1!</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  {communityPosts.map((post) => (
+                    <motion.div 
+                      layout
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      key={post.id} 
+                      className="bg-[var(--bg-panel)] rounded-[32px] border border-white/5 overflow-hidden shadow-lg group"
+                    >
+                      <div className="aspect-square bg-black/20 flex items-center justify-center p-4 relative">
+                        <img 
+                          src={post.image_url} 
+                          alt={post.title} 
+                          className="max-w-full max-h-full object-contain image-pixelated group-hover:scale-110 transition-transform" 
+                        />
+                      </div>
+                      <div className="p-4 border-t border-white/5">
+                        <h4 className="font-bold text-sm truncate">{post.title}</h4>
+                        <div className="flex items-center justify-between mt-2">
+                          <div className="flex items-center gap-1.5 overflow-hidden">
+                            <span className="text-xs text-[var(--text-muted)] truncate max-w-[80px]">
+                              @{post.profiles?.display_name || 'Anônimo'}
+                            </span>
+                            {post.profiles?.is_pro && <Star size={10} className="text-green-400 fill-green-400" />}
+                          </div>
+                          <div className="flex items-center gap-1 text-[var(--text-muted)]">
+                            <Heart size={14} />
+                            <span className="text-[10px] font-bold">{post.likes || 0}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
