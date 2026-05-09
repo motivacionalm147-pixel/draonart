@@ -7,20 +7,13 @@ import Profile from './pages/Profile';
 import WebDashboard from './pages/WebDashboard';
 import Admin from './pages/Admin';
 
-let CapApp: any = null;
-try {
-  import('@capacitor/app').then(m => { CapApp = m.App; }).catch(() => {});
-} catch (_) {}
-
-function isNative() {
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || !!CapApp;
-}
+import { Capacitor } from '@capacitor/core';
 
 export default function App() {
   const [isMobileApp, setIsMobileApp] = useState(false);
 
   useEffect(() => {
-    setIsMobileApp(isNative());
+    setIsMobileApp(Capacitor.isNativePlatform());
   }, []);
 
   // Usamos HashRouter sempre para evitar problemas de rota (404/403) na Vercel
