@@ -61,6 +61,7 @@ function LoadingFallback() {
 
 export default function App() {
   const [config, setConfig] = useState<ProjectConfig | null>(null);
+  const [isPro, setIsPro] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const [splashSequence, setSplashSequence] = useState(0);
   const [showExitDialog, setShowExitDialog] = useState(false);
@@ -146,7 +147,8 @@ export default function App() {
     } catch (e) {}
   }, []);
 
-  const handleStartProject = (newConfig: ProjectConfig) => {
+  const handleStartProject = (newConfig: ProjectConfig, userIsPro: boolean) => {
+    setIsPro(userIsPro);
     setConfig(newConfig);
   };
 
@@ -222,6 +224,7 @@ export default function App() {
         <ErrorBoundary>
             <Editor 
               config={config} 
+              isPro={isPro}
               onBack={() => setConfig(null)} 
               onRegisterBackHandler={(h: () => void) => { editorSavePromptRef.current = h; }} 
               onUnregisterBackHandler={() => { editorSavePromptRef.current = null; }} 

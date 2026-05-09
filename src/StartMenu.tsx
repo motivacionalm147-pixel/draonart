@@ -14,7 +14,7 @@ import { supabase } from './lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 import { CONFIG } from './config';
 
-export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig) => void }) {
+export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig, isPro: boolean) => void }) {
   const [name, setName] = useState('My Pixel Art');
   const [size, setSize] = useState(16);
   const [customWidth, setCustomWidth] = useState(16);
@@ -41,6 +41,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
   const [authError, setAuthError] = useState<string | null>(null);
   const [authSuccess, setAuthSuccess] = useState<string | null>(null);  
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+  const [isPro, setIsPro] = useState(false);
   const [projectGridSize, setProjectGridSize] = useState(() => {
     const saved = localStorage.getItem('pixel_grid_size');
     return saved ? parseInt(saved, 10) : 3;
@@ -288,7 +289,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
     } else {
       sound.init();
       sound.playAction();
-      onStart(p);
+      onStart(p, isPro);
     }
   };
 
@@ -540,7 +541,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
     const updatedProjects = [...savedProjects, newConfig];
     setSavedProjects(updatedProjects);
     localStorage.setItem('pixel_projects', JSON.stringify(updatedProjects));
-    onStart(newConfig);
+    onStart(newConfig, isPro);
   };
 
   // Supabase session listener
@@ -562,6 +563,24 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    const fetchProStatus = async () => {
+      if (session?.user) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('is_pro')
+          .eq('id', session.user.id)
+          .single();
+        if (!error && data) {
+          setIsPro(!!data.is_pro);
+        }
+      } else {
+        setIsPro(false);
+      }
+    };
+    fetchProStatus();
+  }, [session]);
 
   const fetchCommunityPosts = async () => {
     setLoadingCommunity(true);
@@ -913,13 +932,13 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                     ) : (
                       savedProjects.map(p => (
                         <div key={p.id} className="bg-[var(--bg-panel)] rounded-[28px] border border-white/5 hover:border-[var(--accent-color)]/50 transition-all hover:-translate-y-1 shadow-lg relative">
-                          <div className="cursor-pointer" onClick={() => onStart(p)}>
+                          <div className="cursor-pointer" onClick={() => onStart(p, isPro)}>
                             <div className="aspect-square bg-white/5 flex items-center justify-center overflow-hidden rounded-t-[28px]">
                               {p.thumbnail ? <img src={p.thumbnail} className="w-full h-full object-contain image-pixelated" /> : <Palette className="opacity-20" size={40} />}
                             </div>
                           </div>
                           <div className="p-3 flex items-center justify-between gap-2">
-                            <div className="min-w-0 flex-1" onClick={() => onStart(p)}>
+                            <div className="min-w-0 flex-1" onClick={() => onStart(p, isPro)}>
                               <h4 className="font-bold truncate text-sm cursor-pointer">{p.name}</h4>
                               <p className="text-[10px] font-bold text-[var(--accent-color)]/60 uppercase">{p.width}x{p.height}px{p.frames && p.frames.length > 1 ? ` • ${p.frames.length}f` : ''}</p>
                             </div>

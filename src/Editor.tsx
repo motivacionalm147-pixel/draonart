@@ -215,11 +215,13 @@ export default function Editor({
   onBack,
   onRegisterBackHandler,
   onUnregisterBackHandler,
+  isPro = false,
 }: {
   config: ProjectConfig;
   onBack: () => void;
   onRegisterBackHandler?: (handler: () => void) => void;
   onUnregisterBackHandler?: () => void;
+  isPro?: boolean;
 }) {
   const [width, setWidth] = useState(() => Math.max(1, Number(config.width) || 32));
   const [height, setHeight] = useState(() => Math.max(1, Number(config.height) || 32));
@@ -390,6 +392,10 @@ export default function Editor({
   }
 
   function addFrame() {
+    if (!isPro && frames.length >= 8) {
+      setShowUpgradeModal(true);
+      return;
+    }
     const newFrames = [...frames];
     const w = width;
     const h = height;
@@ -483,6 +489,9 @@ export default function Editor({
     layers: { x: 0, y: 0, w: 320, h: 450 },
     effects: { x: 0, y: 0, w: 400, h: 600 },
   });
+
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const FREE_LAYER_LIMIT = 3;
 
   const getPanelState = (panel: string) => {
     return panelStates[panel] || { x: 0, y: 0, w: 320, h: 450 };
@@ -4268,6 +4277,10 @@ export default function Editor({
 
   // Layer Management
   const addLayer = () => {
+    if (!isPro && frames[currentFrame].layers.length >= FREE_LAYER_LIMIT) {
+      setShowUpgradeModal(true);
+      return;
+    }
     const newLayer: Layer = {
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       name: `Layer ${frames[currentFrame].layers.length + 1}`,
@@ -4380,6 +4393,10 @@ export default function Editor({
   };
 
   const duplicateLayer = (idx: number) => {
+    if (!isPro && frames[currentFrame].layers.length >= FREE_LAYER_LIMIT) {
+      setShowUpgradeModal(true);
+      return;
+    }
     const frame = frames[currentFrame];
     const layerToDuplicate = frame.layers[idx];
     const newLayer: Layer = {
@@ -8202,6 +8219,55 @@ export default function Editor({
               >
                 Entendido
               </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showUpgradeModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/90 z-[20000] flex items-center justify-center p-4 backdrop-blur-xl"
+            onClick={() => setShowUpgradeModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-[var(--bg-panel)] border-2 border-[var(--accent-color)] rounded-[40px] p-8 max-w-sm w-full text-center shadow-2xl relative overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-transparent via-[var(--accent-color)] to-transparent opacity-50" />
+              
+              <div className="w-20 h-20 bg-[var(--accent-color)]/20 rounded-3xl flex items-center justify-center mx-auto mb-6 rotate-12">
+                <Star size={40} className="text-[var(--accent-color)] fill-[var(--accent-color)]" />
+              </div>
+
+              <h2 className="text-3xl font-black text-white mb-2 leading-tight uppercase tracking-tighter">Dragon Art PRO</h2>
+              <p className="text-[var(--text-muted)] mb-8 text-sm font-bold leading-relaxed">
+                Você atingiu o limite da versão gratuita. <br/>
+                <span className="text-white">Desbloqueie camadas e frames ilimitados</span> para levar sua arte ao próximo nível!
+              </p>
+
+              <div className="space-y-4">
+                <a
+                  href={CONFIG.STRIPE_PRO_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-4 bg-[var(--accent-color)] hover:bg-[var(--accent-color)]/90 text-white font-black rounded-2xl transition-all shadow-lg shadow-[var(--accent-color)]/20 active:scale-95 flex items-center justify-center gap-3"
+                >
+                  <Zap size={20} fill="white" />
+                  UPGRADE PARA PRO
+                </a>
+                <button
+                  onClick={() => setShowUpgradeModal(false)}
+                  className="w-full py-3 text-[var(--text-muted)] hover:text-white font-black text-xs uppercase tracking-widest transition-colors"
+                >
+                  Talvez mais tarde
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}
