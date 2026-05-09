@@ -14,7 +14,7 @@ import { supabase } from './lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 import { CONFIG } from './config';
 
-export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig, isPro: boolean) => void }) {
+export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig, isPro: boolean, userName: string) => void }) {
   const [name, setName] = useState('My Pixel Art');
   const [size, setSize] = useState(16);
   const [customWidth, setCustomWidth] = useState(16);
@@ -22,6 +22,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
   const [isCustom, setIsCustom] = useState(false);
   const [savedProjects, setSavedProjects] = useState<ProjectConfig[]>([]);
   const [activeTab, setActiveTab] = useState<'home' | 'profile' | 'community'>('home');
+  const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [communityPosts, setCommunityPosts] = useState<any[]>([]);
   const [loadingCommunity, setLoadingCommunity] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
@@ -37,6 +38,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
   const [authPassword, setAuthPassword] = useState('');
   const [registerName, setRegisterName] = useState('');
   const [experienceLevel, setExperienceLevel] = useState<'iniciante' | 'intermediario' | 'avancado' | 'mestre'>('iniciante');
+  const [selectedBadge, setSelectedBadge] = useState('leaf');
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authSuccess, setAuthSuccess] = useState<string | null>(null);  
@@ -289,7 +291,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
     } else {
       sound.init();
       sound.playAction();
-      onStart(p, isPro);
+      onStart(p, isPro, profileName);
     }
   };
 
@@ -394,6 +396,10 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
     const canvas = renderProjectToCanvas(p, 0, scale, format);
     if (!canvas) return;
 
+    if (!isPro) {
+      addWatermark(canvas, session?.user?.user_metadata?.display_name || profileName);
+    }
+
     const fileName = `${p.name}-${targetHeight}p.${format === 'jpeg' ? 'jpg' : 'png'}`;
     const dataUrl = canvas.toDataURL(`image/${format}`, format === 'jpeg' ? 0.92 : undefined);
     await saveToGallery(dataUrl, fileName);
@@ -411,7 +417,12 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
       const delay = 1000 / (p.fps || 8);
       for (let i = 0; i < p.frames.length; i++) {
         const canvas = renderProjectToCanvas(p, i, scale);
-        if (canvas) gif.addFrame(canvas, { delay });
+        if (canvas) {
+          if (!isPro) {
+            addWatermark(canvas, session?.user?.user_metadata?.display_name || profileName);
+          }
+          gif.addFrame(canvas, { delay });
+        }
       }
       gif.on('finished', async (blob: Blob) => {
         await saveBlobToGallery(blob, `${p.name}-animation.gif`);
@@ -487,7 +498,9 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
       return;
     }
     const userName = session?.user?.user_metadata?.display_name || profileName;
-    addWatermark(canvas, userName);
+    if (!isPro) {
+      addWatermark(canvas, userName);
+    }
     const dataUrl = canvas.toDataURL(`image/${format}`, format === 'jpeg' ? 0.92 : undefined);
     
     if (Capacitor.isNativePlatform()) {
@@ -541,7 +554,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
     const updatedProjects = [...savedProjects, newConfig];
     setSavedProjects(updatedProjects);
     localStorage.setItem('pixel_projects', JSON.stringify(updatedProjects));
-    onStart(newConfig, isPro);
+    onStart(newConfig, isPro, profileName);
   };
 
   // Supabase session listener
@@ -559,6 +572,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
       if (s?.user?.user_metadata) {
         setProfileName(s.user.user_metadata.display_name || 'Artista Pixel');
         setExperienceLevel(s.user.user_metadata.experience_level || 'iniciante');
+        setSelectedBadge(s.user.user_metadata.badge || 'leaf');
       }
     });
     return () => subscription.unsubscribe();
@@ -664,6 +678,19 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
     { id: 'mestre' as const, label: 'Mestre', icon: '👑', desc: 'Artista profissional' },
   ];
 
+  const badges = [
+    { id: 'leaf', image: '/badges/leaf.png', label: 'Iniciante', pro: false },
+    { id: 'artist', image: '/badges/artist.png', label: 'Artista', pro: false },
+    { id: 'sparkles', image: '/badges/sparkles.png', label: 'Criativo', pro: false },
+    { id: 'heart', image: '/badges/heart.png', label: 'Amante', pro: false },
+    { id: 'fire', image: '/badges/fire.png', label: 'Fogo', pro: false },
+    { id: 'star', image: '/badges/star.png', label: 'Pro Star', pro: true },
+    { id: 'crown', image: '/badges/crown.png', label: 'Rei', pro: true },
+    { id: 'diamond', image: '/badges/diamond.png', label: 'Diamante', pro: true },
+    { id: 'dragon', image: '/badges/dragon.png', label: 'Mestre', pro: true },
+    { id: 'verified', image: '/badges/verified.png', label: 'Verificado', pro: true },
+  ];
+
   const handleSignUp = async () => {
     console.log('Attempting Sign Up:', authEmail);
     setAuthLoading(true); setAuthError(null); setAuthSuccess(null);
@@ -731,7 +758,13 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
 
   const handleSaveProfile = async () => {
     sound.playAction();
-    const { error } = await supabase.auth.updateUser({ data: { display_name: profileName, experience_level: experienceLevel } });
+    const { error } = await supabase.auth.updateUser({ 
+      data: { 
+        display_name: profileName, 
+        experience_level: experienceLevel,
+        badge: selectedBadge
+      } 
+    });
     if (error) setAuthError(error.message);
     else setAuthSuccess('Perfil salvo!');
     setTimeout(() => setAuthSuccess(null), 3000);
@@ -777,6 +810,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                       </h1>
                       <div className="mt-2 flex items-center gap-3">
                         <span className="text-[10px] font-black text-[var(--accent-color)] uppercase tracking-widest bg-[var(--accent-color)]/10 px-2 py-1 rounded-md border border-[var(--accent-color)]/20">Studio v{CONFIG.VERSION}</span>
+                        {isPro && <span className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black text-[9px] font-black px-2 py-1 rounded-md shadow-lg flex items-center gap-1 animate-pulse">PRO <Check size={10} /></span>}
                       </div>
                     </div>
                   </div>
@@ -932,13 +966,13 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                     ) : (
                       savedProjects.map(p => (
                         <div key={p.id} className="bg-[var(--bg-panel)] rounded-[28px] border border-white/5 hover:border-[var(--accent-color)]/50 transition-all hover:-translate-y-1 shadow-lg relative">
-                          <div className="cursor-pointer" onClick={() => onStart(p, isPro)}>
+                          <div className="cursor-pointer" onClick={() => onStart(p, isPro, profileName)}>
                             <div className="aspect-square bg-white/5 flex items-center justify-center overflow-hidden rounded-t-[28px]">
                               {p.thumbnail ? <img src={p.thumbnail} className="w-full h-full object-contain image-pixelated" /> : <Palette className="opacity-20" size={40} />}
                             </div>
                           </div>
                           <div className="p-3 flex items-center justify-between gap-2">
-                            <div className="min-w-0 flex-1" onClick={() => onStart(p, isPro)}>
+                            <div className="min-w-0 flex-1" onClick={() => onStart(p, isPro, profileName)}>
                               <h4 className="font-bold truncate text-sm cursor-pointer">{p.name}</h4>
                               <p className="text-[10px] font-bold text-[var(--accent-color)]/60 uppercase">{p.width}x{p.height}px{p.frames && p.frames.length > 1 ? ` • ${p.frames.length}f` : ''}</p>
                             </div>
@@ -1010,7 +1044,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                                     disabled={isPosting}
                                     className="w-full px-4 py-2 text-sm text-green-400 hover:bg-green-500 hover:text-white flex items-center gap-2 transition-colors disabled:opacity-50"
                                   >
-                                    <Share size={14} /> {isPosting ? 'Postando...' : 'Postar na Comunidade'}
+                                    <ShareIcon size={14} /> {isPosting ? 'Postando...' : 'Postar na Comunidade'}
                                   </button>
                                 </motion.div>
                               </>
@@ -1145,11 +1179,18 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                       <div className="absolute -bottom-2 -right-2 bg-[var(--accent-color)] p-2 rounded-xl shadow-lg">
                         <Pencil size={14} className="text-white" />
                       </div>
+                      {/* Badge Seal on Avatar */}
+                      <div className="absolute top-0 right-0 bg-black/60 backdrop-blur-md w-10 h-10 rounded-full flex items-center justify-center border border-white/20 shadow-xl z-10 translate-x-1 -translate-y-1">
+                        <img src={badges.find(b => b.id === selectedBadge)?.image || '/badges/leaf.png'} className="w-6 h-6 object-contain" alt="Selo" />
+                      </div>
                     </div>
 
                     {/* Name */}
-                    <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)}
-                      className="w-full bg-transparent border-none text-center text-xl font-black text-white outline-none focus:bg-[var(--bg-panel)] rounded-2xl p-2 transition-colors" />
+                    <div className="flex items-center gap-2">
+                      <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)}
+                        className="bg-transparent border-none text-center text-xl font-black text-white outline-none focus:bg-[var(--bg-panel)] rounded-2xl p-2 transition-colors" />
+                      <img src={badges.find(b => b.id === selectedBadge)?.image} className="w-8 h-8 object-contain" alt="Selo" />
+                    </div>
 
                     {/* Experience Badge */}
                     <div className="mt-1 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider flex items-center gap-1.5"
@@ -1180,6 +1221,70 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
 
                   {/* Right Column: Security & Actions */}
                   <div className="w-full md:w-2/3 flex flex-col gap-5">
+                    {/* Badge Selection Card */}
+                    <div className="bg-[var(--bg-panel)] rounded-[28px] p-6 border border-white/5 shadow-xl">
+                      <h3 className="text-lg font-black mb-5 flex items-center gap-3">
+                        <div className="p-2 bg-[var(--accent-color)]/20 rounded-xl"><Award size={18} className="text-[var(--accent-color)]" /></div>
+                        Seus Selos
+                      </h3>
+                      <div className="space-y-4">
+                        <div>
+                          <div className="text-xs font-black text-[var(--text-muted)] mb-2 uppercase tracking-widest pl-1">Selos Gratuitos</div>
+                          <div className="grid grid-cols-5 gap-3">
+                            {badges.filter(b => !b.pro).map(badge => {
+                              const isLocked = badge.pro && !isPro;
+                              return (
+                                <button
+                                  key={badge.id}
+                                  disabled={isLocked}
+                                  onClick={() => {
+                                    setSelectedBadge(badge.id);
+                                    sound.playClick();
+                                  }}
+                                  className={`aspect-square rounded-2xl flex items-center justify-center text-2xl transition-all relative ${
+                                    selectedBadge === badge.id 
+                                      ? 'bg-[var(--accent-color)] scale-110 shadow-lg border-2 border-white/20' 
+                                      : 'bg-white/5 hover:bg-white/10 grayscale-[0.5] opacity-50'
+                                  } ${isLocked ? 'cursor-not-allowed opacity-20' : 'cursor-pointer'}`}
+                                  title={badge.label}
+                                >
+                                  <img src={badge.image} className="w-8 h-8 object-contain" alt={badge.label} />
+                                  {isLocked && <Lock size={10} className="absolute bottom-1 right-1 text-white/50" />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs font-black text-[var(--text-muted)] mb-2 uppercase tracking-widest pl-1">Selos PRO</div>
+                          <div className="grid grid-cols-5 gap-3">
+                            {badges.filter(b => b.pro).map(badge => {
+                              const isLocked = badge.pro && !isPro;
+                              return (
+                                <button
+                                  key={badge.id}
+                                  disabled={isLocked}
+                                  onClick={() => {
+                                    setSelectedBadge(badge.id);
+                                    sound.playClick();
+                                  }}
+                                  className={`aspect-square rounded-2xl flex items-center justify-center text-2xl transition-all relative ${
+                                    selectedBadge === badge.id 
+                                      ? 'bg-[var(--accent-color)] scale-110 shadow-lg border-2 border-white/20' 
+                                      : 'bg-white/5 hover:bg-white/10 grayscale-[0.5] opacity-50'
+                                  } ${isLocked ? 'cursor-not-allowed opacity-20' : 'cursor-pointer'}`}
+                                  title={badge.label}
+                                >
+                                  <img src={badge.image} className="w-8 h-8 object-contain" alt={badge.label} />
+                                  {isLocked && <Lock size={10} className="absolute bottom-1 right-1 text-white/50" />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Security Card */}
                     <div className="bg-[var(--bg-panel)] rounded-[28px] p-6 border border-white/5 shadow-xl">
                       <h3 className="text-lg font-black mb-5 flex items-center gap-3">
