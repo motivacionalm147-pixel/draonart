@@ -7,7 +7,7 @@ export const CONFIG = {
   STRIPE_PRO_LINK: "https://buy.stripe.com/test_4gM5kFeyk7YJ8cO4Pra3u00",
   
   // INFORMAÇÕES DA PLATAFORMA
-  VERSION: "1.7.1",
+  VERSION: "1.7.2",
   APP_NAME: "Dragon Art",
   PLATFORM_NAME: "Dragon Art Studio",
   

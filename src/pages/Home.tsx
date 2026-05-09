@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Palette, Users, Play, MonitorSmartphone } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 
 const MOCK_BG_IMAGES = [
   '/63b2de4429b84bb6e1cc632f2b8b9361.webp',
@@ -15,6 +16,13 @@ export default function Home() {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
+    // Check if user is logged in
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user) {
+        navigate('/dashboard');
+      }
+    });
+
     const handleMouseMove = (e: MouseEvent) => {
       setMousePosition({
         x: (e.clientX / window.innerWidth - 0.5) * 20,
@@ -91,11 +99,11 @@ export default function Home() {
             </span>
           </div>
           <nav className="hidden md:flex items-center gap-2 bg-white/5 p-1 rounded-full border border-white/10">
-            <button onClick={() => navigate('/gallery')} className="px-6 py-2.5 rounded-full font-black text-sm text-gray-300 hover:text-white hover:bg-white/10 transition-all uppercase tracking-widest flex items-center gap-2">
-              <Users size={16} /> Galeria
+            <button onClick={() => navigate('/app')} className="px-6 py-2.5 rounded-full font-black text-sm text-gray-300 hover:text-white hover:bg-white/10 transition-all uppercase tracking-widest flex items-center gap-2">
+              <Users size={16} /> Entrar / Cadastrar
             </button>
             <button onClick={() => navigate('/app')} className="px-6 py-2.5 rounded-full font-black text-sm bg-gradient-to-r from-green-500 to-emerald-600 text-black shadow-[0_0_15px_rgba(34,197,94,0.4)] hover:shadow-[0_0_25px_rgba(34,197,94,0.6)] hover:scale-105 transition-all uppercase tracking-widest flex items-center gap-2">
-              <Palette size={16} /> Estúdio Web
+              <Palette size={16} /> Desenhar Agora
             </button>
           </nav>
         </div>

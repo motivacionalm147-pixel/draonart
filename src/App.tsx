@@ -4,6 +4,7 @@ import AppScreen from './pages/AppScreen';
 import Home from './pages/Home';
 import WebGallery from './pages/WebGallery';
 import Profile from './pages/Profile';
+import WebDashboard from './pages/WebDashboard';
 import Admin from './pages/Admin';
 
 let CapApp: any = null;
@@ -31,6 +32,9 @@ export default function App() {
       <Routes>
         {/* Se for celular, a raiz redireciona para o app, senão para a Home (Landing Page) */}
         <Route path="/" element={isMobileApp ? <Navigate to="/app" replace /> : <Home />} />
+        
+        {/* Painel do site (como Pixilart) */}
+        <Route path="/dashboard" element={<WebDashboard />} />
         
         {/* Editor do Aplicativo */}
         <Route path="/app" element={<AppScreen />} />

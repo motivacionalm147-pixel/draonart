@@ -62,6 +62,7 @@ function LoadingFallback() {
 export default function App() {
   const [config, setConfig] = useState<ProjectConfig | null>(null);
   const [isPro, setIsPro] = useState(false);
+  const [userName, setUserName] = useState('Artista Pixel');
   const [showSplash, setShowSplash] = useState(true);
   const [splashSequence, setSplashSequence] = useState(0);
   const [showExitDialog, setShowExitDialog] = useState(false);
@@ -147,8 +148,9 @@ export default function App() {
     } catch (e) {}
   }, []);
 
-  const handleStartProject = (newConfig: ProjectConfig, userIsPro: boolean) => {
+  const handleStartProject = (newConfig: ProjectConfig, userIsPro: boolean, name: string) => {
     setIsPro(userIsPro);
+    setUserName(name);
     setConfig(newConfig);
   };
 
@@ -225,6 +227,7 @@ export default function App() {
             <Editor 
               config={config} 
               isPro={isPro}
+              userName={userName}
               onBack={() => setConfig(null)} 
               onRegisterBackHandler={(h: () => void) => { editorSavePromptRef.current = h; }} 
               onUnregisterBackHandler={() => { editorSavePromptRef.current = null; }} 

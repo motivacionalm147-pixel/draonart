@@ -73,6 +73,7 @@ import {
   FolderHeart,
   Trash,
 } from "lucide-react";
+import { CONFIG } from './config';
 import {
   motion,
   AnimatePresence,
@@ -216,12 +217,14 @@ export default function Editor({
   onRegisterBackHandler,
   onUnregisterBackHandler,
   isPro = false,
+  userName = "Artista Pixel",
 }: {
   config: ProjectConfig;
   onBack: () => void;
   onRegisterBackHandler?: (handler: () => void) => void;
   onUnregisterBackHandler?: () => void;
   isPro?: boolean;
+  userName?: string;
 }) {
   const [width, setWidth] = useState(() => Math.max(1, Number(config.width) || 32));
   const [height, setHeight] = useState(() => Math.max(1, Number(config.height) || 32));
@@ -1052,6 +1055,33 @@ export default function Editor({
       reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
+  };
+
+  const addWatermark = (canvas: HTMLCanvasElement, artistName: string) => {
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const padding = canvas.width * 0.03;
+    const fontSize = Math.max(12, canvas.height * 0.04);
+    
+    // Watermark background
+    ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+    const bgHeight = fontSize * 1.5;
+    ctx.fillRect(0, canvas.height - bgHeight, canvas.width, bgHeight);
+
+    // Text
+    ctx.font = `bold ${fontSize}px Inter, sans-serif`;
+    ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+    ctx.textBaseline = "middle";
+    
+    const brandText = "DragonArt \uD83D\uDC09";
+    const artistText = `by ${artistName}`;
+    
+    ctx.textAlign = "left";
+    ctx.fillText(brandText, padding, canvas.height - bgHeight / 2);
+    
+    ctx.textAlign = "right";
+    ctx.fillText(artistText, canvas.width - padding, canvas.height - bgHeight / 2);
   };
 
   const saveToNativeGallery = async (
@@ -4790,6 +4820,9 @@ export default function Editor({
     const fileName = `${config.name}-frame-${
       currentFrame + 1
     }-${exportResolution}.${ext}`;
+    if (!isPro) {
+      addWatermark(canvas, userName);
+    }
     const dataUrl = canvas.toDataURL(mimeType, useJpeg ? 0.95 : undefined);
 
     if (Capacitor.isNativePlatform()) {
@@ -4848,6 +4881,9 @@ export default function Editor({
     const ext = useJpeg ? "jpg" : "png";
     const mimeType = useJpeg ? "image/jpeg" : "image/png";
     const fileName = `${config.name}-spritesheet-${exportResolution}.${ext}`;
+    if (!isPro) {
+      addWatermark(canvas, userName);
+    }
     const dataUrl = canvas.toDataURL(mimeType, useJpeg ? 0.95 : undefined);
 
     if (Capacitor.isNativePlatform()) {
@@ -4922,6 +4958,9 @@ export default function Editor({
           ctx.fillText(t.text, t.x * scale, t.y * scale);
         });
 
+        if (!isPro) {
+          addWatermark(canvas, userName);
+        }
         gif.addFrame(canvas, { delay: delay });
       }
 
@@ -7142,34 +7181,52 @@ export default function Editor({
                       HD
                     </button>
                     <button
-                      onClick={() => setExportResolution("4k")}
-                      className={`py-2 rounded-lg border transition-colors text-sm font-medium ${
+                      onClick={() => {
+                        if (!isPro) {
+                          setShowUpgradeModal(true);
+                          return;
+                        }
+                        setExportResolution("4k");
+                      }}
+                      className={`py-2 rounded-lg border transition-colors text-sm font-medium relative ${
                         exportResolution === "4k"
                           ? "bg-[var(--accent-color)] border-[var(--accent-color)] text-white"
                           : "bg-[var(--bg-element)] border-[var(--border-strong)] text-[var(--text-muted)] hover:text-white"
                       }`}
                     >
-                      4K
+                      4K {!isPro && <Lock size={10} className="inline ml-1 opacity-50" />}
                     </button>
                     <button
-                      onClick={() => setExportResolution("8k")}
-                      className={`py-2 rounded-lg border transition-colors text-sm font-medium ${
+                      onClick={() => {
+                        if (!isPro) {
+                          setShowUpgradeModal(true);
+                          return;
+                        }
+                        setExportResolution("8k");
+                      }}
+                      className={`py-2 rounded-lg border transition-colors text-sm font-medium relative ${
                         exportResolution === "8k"
                           ? "bg-[var(--accent-color)] border-[var(--accent-color)] text-white"
                           : "bg-[var(--bg-element)] border-[var(--border-strong)] text-[var(--text-muted)] hover:text-white"
                       }`}
                     >
-                      8K
+                      8K {!isPro && <Lock size={10} className="inline ml-1 opacity-50" />}
                     </button>
                     <button
-                      onClick={() => setExportResolution("16k")}
-                      className={`py-2 rounded-lg border transition-colors text-sm font-medium ${
+                      onClick={() => {
+                        if (!isPro) {
+                          setShowUpgradeModal(true);
+                          return;
+                        }
+                        setExportResolution("16k");
+                      }}
+                      className={`py-2 rounded-lg border transition-colors text-sm font-medium relative ${
                         exportResolution === "16k"
                           ? "bg-[var(--accent-color)] border-[var(--accent-color)] text-white"
                           : "bg-[var(--bg-element)] border-[var(--border-strong)] text-[var(--text-muted)] hover:text-white"
                       }`}
                     >
-                      16K
+                      16K {!isPro && <Lock size={10} className="inline ml-1 opacity-50" />}
                     </button>
                   </div>
                 </div>
@@ -8252,15 +8309,13 @@ export default function Editor({
               </p>
 
               <div className="space-y-4">
-                <a
-                  href={CONFIG.STRIPE_PRO_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={() => window.open(CONFIG.STRIPE_PRO_LINK, '_blank')}
                   className="w-full py-4 bg-[var(--accent-color)] hover:bg-[var(--accent-color)]/90 text-white font-black rounded-2xl transition-all shadow-lg shadow-[var(--accent-color)]/20 active:scale-95 flex items-center justify-center gap-3"
                 >
                   <Zap size={20} fill="white" />
                   UPGRADE PARA PRO
-                </a>
+                </button>
                 <button
                   onClick={() => setShowUpgradeModal(false)}
                   className="w-full py-3 text-[var(--text-muted)] hover:text-white font-black text-xs uppercase tracking-widest transition-colors"
