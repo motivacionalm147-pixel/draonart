@@ -200,14 +200,14 @@ export default function WebDashboard() {
                         {/* Dynamic Avatar Badge Render */}
                         {badgeObj ? (
                           <>
-                            <div className="absolute inset-0 rounded-full scale-150 blur-md pointer-events-none" style={{ background: badgeObj.glow ? \`radial-gradient(circle, \${badgeObj.glow} 0%, transparent 70%)\` : 'none', opacity: 0.5 }}></div>
-                            <img src={badgeObj.image} className="w-8 h-8 object-contain relative z-10" alt="Selo" style={{ filter: badgeObj.glow ? \`drop-shadow(0 0 5px \${badgeObj.glow})\` : 'none' }} />
+                            <div className="absolute inset-0 rounded-full scale-150 blur-md pointer-events-none" style={{ background: badgeObj.glow ? `radial-gradient(circle, ${badgeObj.glow} 0%, transparent 70%)` : 'none', opacity: 0.5 }}></div>
+                            <img src={badgeObj.image} className="w-8 h-8 object-contain relative z-10" alt="Selo" style={{ filter: badgeObj.glow ? `drop-shadow(0 0 5px ${badgeObj.glow})` : 'none' }} />
                           </>
                         ) : (
                           <UserIcon size={18} className="text-gray-500" />
                         )}
                       </div>
-                      <div className="flex flex-col cursor-pointer" onClick={() => navigate(\`/user/\${post.profiles?.id}\`)}>
+                      <div className="flex flex-col cursor-pointer" onClick={() => navigate(`/user/${post.profiles?.id}`)}>
                         <div className="font-bold flex items-center gap-2 text-lg">
                           {post.profiles?.display_name || 'Artista'}
                           {post.profiles?.is_pro && <span className="text-[10px] bg-green-500 text-black px-1.5 py-0.5 rounded uppercase font-black">PRO</span>}
@@ -226,7 +226,7 @@ export default function WebDashboard() {
                   <div className="p-4">
                     <h3 className="font-bold text-xl mb-4">{post.title}</h3>
                     <div className="flex items-center gap-6">
-                      <button onClick={() => toggleLike(post.id)} className={\`flex items-center gap-2 font-bold transition-colors \${likedPosts[post.id] ? 'text-red-500' : 'text-gray-400 hover:text-red-400'}\`}>
+                      <button onClick={() => toggleLike(post.id)} className={`flex items-center gap-2 font-bold transition-colors ${likedPosts[post.id] ? 'text-red-500' : 'text-gray-400 hover:text-red-400'}`}>
                         <Heart size={22} className={likedPosts[post.id] ? 'fill-red-500' : ''} /> {post.likes}
                       </button>
                       <button onClick={() => loadComments(post.id)} className="flex items-center gap-2 text-gray-400 hover:text-blue-400 font-bold transition-colors">

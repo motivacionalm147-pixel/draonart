@@ -58,9 +58,9 @@ export default function Profile() {
               {profile?.badge ? (
                 <>
                   {BADGES.find(b => b.id === profile.badge)?.glow && (
-                    <div className="absolute inset-0 rounded-full scale-150 blur-xl pointer-events-none" style={{ background: \`radial-gradient(circle, \${BADGES.find(b => b.id === profile.badge)?.glow} 0%, transparent 70%)\`, opacity: 0.6 }}></div>
+                    <div className="absolute inset-0 rounded-full scale-150 blur-xl pointer-events-none" style={{ background: `radial-gradient(circle, ${BADGES.find(b => b.id === profile.badge)?.glow} 0%, transparent 70%)`, opacity: 0.6 }}></div>
                   )}
-                  <img src={BADGES.find(b => b.id === profile.badge)?.image} className="w-20 h-20 object-contain relative z-10" alt="Selo" style={{ filter: BADGES.find(b => b.id === profile.badge)?.glow ? \`drop-shadow(0 0 10px \${BADGES.find(b => b.id === profile.badge)?.glow})\` : 'none' }} />
+                  <img src={BADGES.find(b => b.id === profile.badge)?.image} className="w-20 h-20 object-contain relative z-10" alt="Selo" style={{ filter: BADGES.find(b => b.id === profile.badge)?.glow ? `drop-shadow(0 0 10px ${BADGES.find(b => b.id === profile.badge)?.glow})` : 'none' }} />
                 </>
               ) : (
                 <User size={48} className="text-gray-500" />
