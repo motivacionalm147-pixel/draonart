@@ -679,16 +679,16 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
   ];
 
   const badges = [
-    { id: 'leaf', image: '/badges/leaf.png', label: 'Iniciante', pro: false },
-    { id: 'artist', image: '/badges/artist.png', label: 'Artista', pro: false },
-    { id: 'sparkles', image: '/badges/sparkles.png', label: 'Criativo', pro: false },
-    { id: 'heart', image: '/badges/heart.png', label: 'Amante', pro: false },
-    { id: 'fire', image: '/badges/fire.png', label: 'Fogo', pro: false },
-    { id: 'star', image: '/badges/star.png', label: 'Pro Star', pro: true },
-    { id: 'crown', image: '/badges/crown.png', label: 'Rei', pro: true },
-    { id: 'diamond', image: '/badges/diamond.png', label: 'Diamante', pro: true },
-    { id: 'dragon', image: '/badges/dragon.png', label: 'Mestre', pro: true },
-    { id: 'verified', image: '/badges/verified.png', label: 'Verificado', pro: true },
+    { id: 'leaf', image: '/badges/free_1.png', label: 'Folha', pro: false },
+    { id: 'artist', image: '/badges/free_2.png', label: 'Pedra', pro: false },
+    { id: 'sparkles', image: '/badges/free_3.png', label: 'Lápis', pro: false },
+    { id: 'heart', image: '/badges/free_4.png', label: 'Coração', pro: false },
+    { id: 'fire', image: '/badges/free_5.png', label: 'Selo Amarelo', pro: false },
+    { id: 'star', image: '/badges/pro_1.png', label: 'Cristal Pro', pro: true, glow: 'rgba(56, 189, 248, 0.8)' },
+    { id: 'crown', image: '/badges/pro_2.png', label: 'Fogo Pro', pro: true, glow: 'rgba(239, 68, 68, 0.8)' },
+    { id: 'diamond', image: '/badges/pro_3.png', label: 'Cósmico Pro', pro: true, glow: 'rgba(168, 85, 247, 0.8)' },
+    { id: 'dragon', image: '/badges/pro_4.png', label: 'Game Pro', pro: true, glow: 'rgba(34, 197, 94, 0.8)' },
+    { id: 'verified', image: '/badges/pro_5.png', label: 'Dourado Pro', pro: true, glow: 'rgba(234, 179, 8, 0.8)' },
   ];
 
   const handleSignUp = async () => {
@@ -1180,16 +1180,21 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                         <Pencil size={14} className="text-white" />
                       </div>
                       {/* Badge Seal on Avatar */}
-                      <div className="absolute top-0 right-0 bg-black/60 backdrop-blur-md w-10 h-10 rounded-full flex items-center justify-center border border-white/20 shadow-xl z-10 translate-x-1 -translate-y-1">
-                        <img src={badges.find(b => b.id === selectedBadge)?.image || '/badges/leaf.png'} className="w-6 h-6 object-contain" alt="Selo" />
+                      <div className="absolute top-0 right-0 bg-black/80 backdrop-blur-md w-12 h-12 rounded-full flex items-center justify-center border-2 border-white/20 z-10 translate-x-2 -translate-y-2 overflow-visible"
+                           style={{ boxShadow: badges.find(b => b.id === selectedBadge)?.glow ? `0 0 15px ${badges.find(b => b.id === selectedBadge)?.glow}` : '0 4px 6px rgba(0,0,0,0.3)' }}>
+                        <div className="absolute inset-0 rounded-full" style={{ background: badges.find(b => b.id === selectedBadge)?.glow ? `radial-gradient(circle, ${badges.find(b => b.id === selectedBadge)?.glow} 0%, transparent 70%)` : 'none', opacity: 0.6 }}></div>
+                        <img src={badges.find(b => b.id === selectedBadge)?.image || '/badges/free_1.png'} className="w-10 h-10 object-contain relative z-10" alt="Selo" style={{ filter: badges.find(b => b.id === selectedBadge)?.glow ? `drop-shadow(0 0 5px ${badges.find(b => b.id === selectedBadge)?.glow})` : 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }} />
                       </div>
                     </div>
 
                     {/* Name */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
                       <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)}
-                        className="bg-transparent border-none text-center text-xl font-black text-white outline-none focus:bg-[var(--bg-panel)] rounded-2xl p-2 transition-colors" />
-                      <img src={badges.find(b => b.id === selectedBadge)?.image} className="w-8 h-8 object-contain" alt="Selo" />
+                        className="bg-transparent border-none text-center text-2xl font-black text-white outline-none focus:bg-[var(--bg-panel)] rounded-2xl p-2 transition-colors" />
+                      <div className="relative flex items-center justify-center w-10 h-10">
+                        <div className="absolute inset-0 scale-150 blur-md rounded-full pointer-events-none" style={{ background: badges.find(b => b.id === selectedBadge)?.glow ? `radial-gradient(circle, ${badges.find(b => b.id === selectedBadge)?.glow} 0%, transparent 70%)` : 'none', opacity: 0.7 }}></div>
+                        <img src={badges.find(b => b.id === selectedBadge)?.image} className="w-full h-full object-contain relative z-10" alt="Selo" style={{ filter: badges.find(b => b.id === selectedBadge)?.glow ? `drop-shadow(0 0 8px ${badges.find(b => b.id === selectedBadge)?.glow})` : 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }} />
+                      </div>
                     </div>
 
                     {/* Experience Badge */}
@@ -1248,7 +1253,8 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                                   } ${isLocked ? 'cursor-not-allowed opacity-20' : 'cursor-pointer'}`}
                                   title={badge.label}
                                 >
-                                  <img src={badge.image} className="w-8 h-8 object-contain" alt={badge.label} />
+                                  <div className="absolute inset-0 w-full h-full rounded-2xl blur-md scale-110 pointer-events-none transition-opacity" style={{ background: badge.glow ? `radial-gradient(circle, ${badge.glow} 0%, transparent 80%)` : 'none', opacity: selectedBadge === badge.id ? 0.8 : 0 }}></div>
+                                  <img src={badge.image} className="w-10 h-10 object-contain relative z-10" alt={badge.label} style={{ filter: badge.glow && selectedBadge === badge.id ? `drop-shadow(0 0 5px ${badge.glow})` : 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }} />
                                   {isLocked && <Lock size={10} className="absolute bottom-1 right-1 text-white/50" />}
                                 </button>
                               );
@@ -1275,7 +1281,8 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                                   } ${isLocked ? 'cursor-not-allowed opacity-20' : 'cursor-pointer'}`}
                                   title={badge.label}
                                 >
-                                  <img src={badge.image} className="w-8 h-8 object-contain" alt={badge.label} />
+                                  <div className="absolute inset-0 w-full h-full rounded-2xl blur-md scale-110 pointer-events-none transition-opacity" style={{ background: badge.glow ? `radial-gradient(circle, ${badge.glow} 0%, transparent 80%)` : 'none', opacity: selectedBadge === badge.id ? 0.8 : 0 }}></div>
+                                  <img src={badge.image} className="w-10 h-10 object-contain relative z-10" alt={badge.label} style={{ filter: badge.glow && selectedBadge === badge.id ? `drop-shadow(0 0 5px ${badge.glow})` : 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }} />
                                   {isLocked && <Lock size={10} className="absolute bottom-1 right-1 text-white/50" />}
                                 </button>
                               );
