@@ -47,7 +47,7 @@ export default function WebDashboard() {
     const fetchPosts = async () => {
       const { data, error } = await supabase
         .from('posts')
-        .select(`id, title, image_url, likes, created_at, profiles (id, display_name, is_pro, badge)`)
+        .select(`id, title, image_url, likes, created_at, profiles:user_id (id, display_name, is_pro, badge)`)
         .order('created_at', { ascending: false })
         .limit(20);
       if (!error && data) setPosts(data);
@@ -92,7 +92,7 @@ export default function WebDashboard() {
     if (!comments[postId]) {
       const { data } = await supabase
         .from('comments')
-        .select(`id, content, created_at, profiles (display_name, badge, is_pro)`)
+        .select(`id, content, created_at, profiles:user_id (display_name, badge, is_pro)`)
         .eq('post_id', postId)
         .order('created_at', { ascending: true });
       if (data) {
@@ -104,7 +104,7 @@ export default function WebDashboard() {
   const submitComment = async (postId: string) => {
     if (!commentInput.trim() || !user) return;
     const newComment = { post_id: postId, user_id: user.id, content: commentInput.trim() };
-    const { data, error } = await supabase.from('comments').insert(newComment).select(`id, content, created_at, profiles (display_name, badge, is_pro)`).single();
+    const { data, error } = await supabase.from('comments').insert(newComment).select(`id, content, created_at, profiles:user_id (display_name, badge, is_pro)`).single();
     if (!error && data) {
       setComments(prev => ({ ...prev, [postId]: [...(prev[postId] || []), data] }));
       setCommentInput('');
