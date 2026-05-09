@@ -23,9 +23,9 @@ export default function App() {
     setIsMobileApp(isNative());
   }, []);
 
-  // Use HashRouter for mobile app to avoid routing issues with file:// protocol
-  // Use BrowserRouter for web for cleaner URLs
-  const Router = isMobileApp ? HashRouter : BrowserRouter;
+  // Usamos HashRouter sempre para evitar problemas de rota (404/403) na Vercel
+  // caso o projeto não esteja configurado com o preset correto.
+  const Router = HashRouter;
 
   return (
     <Router>
