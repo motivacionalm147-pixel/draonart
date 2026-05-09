@@ -20,14 +20,25 @@ export default function WebDashboard() {
   // Likes state
   const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
 
+  // Auth & Post Modals
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authName, setAuthName] = useState('');
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [authLoading, setAuthLoading] = useState(false);
+
+  const [showPostModal, setShowPostModal] = useState(false);
+  const [postTitle, setPostTitle] = useState('');
+  const [postFile, setPostFile] = useState<File | null>(null);
+  const [postLoading, setPostLoading] = useState(false);
+
   const navigate = useNavigate();
 
   useEffect(() => {
     const checkUser = async () => {
       const { data } = await supabase.auth.getUser();
-      if (!data.user) {
-        navigate('/');
-      } else {
+      if (data.user) {
         setUser(data.user);
         // Load user profile
         const { data: profileData } = await supabase.from('profiles').select('*').eq('id', data.user.id).single();
@@ -57,7 +68,10 @@ export default function WebDashboard() {
   }, [navigate]);
 
   const toggleLike = async (postId: string) => {
-    if (!user) return;
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
     const isLiked = likedPosts[postId];
     
     // Optimistic UI update
@@ -102,7 +116,11 @@ export default function WebDashboard() {
   };
 
   const submitComment = async (postId: string) => {
-    if (!commentInput.trim() || !user) return;
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
+    if (!commentInput.trim()) return;
     const newComment = { post_id: postId, user_id: user.id, content: commentInput.trim() };
     const { data, error } = await supabase.from('comments').insert(newComment).select(`id, content, created_at, profiles (display_name, badge, is_pro)`).single();
     if (!error && data) {
@@ -116,8 +134,66 @@ export default function WebDashboard() {
     navigate('/');
   };
 
-  if (!user) return null;
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    try {
+      if (authMode === 'login') {
+        const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.auth.signUp({
+          email: authEmail,
+          password: authPassword,
+          options: { data: { display_name: authName } }
+        });
+        if (error) throw error;
+      }
+      window.location.reload();
+    } catch (err: any) {
+      alert(err.message || 'Erro na autenticação');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
 
+  const handlePost = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!postTitle.trim() || !postFile || !user) return;
+    
+    setPostLoading(true);
+    try {
+      const fileExt = postFile.name.split('.').pop();
+      const fileName = `${user.id}_${Date.now()}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage.from('arts').upload(fileName, postFile);
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage.from('arts').getPublicUrl(fileName);
+      
+      const { error: insertError } = await supabase.from('posts').insert({
+        user_id: user.id,
+        title: postTitle,
+        image_url: publicUrlData.publicUrl
+      });
+      if (insertError) throw insertError;
+      
+      window.location.reload();
+    } catch (err: any) {
+      alert(err.message || 'Erro ao postar');
+    } finally {
+      setPostLoading(false);
+    }
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    if (!confirm('Tem certeza que deseja apagar esta arte?')) return;
+    try {
+      await supabase.from('posts').delete().eq('id', postId);
+      setPosts(posts.filter(p => p.id !== postId));
+    } catch (err) {
+      console.error(err);
+    }
+  };
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans flex flex-col">
       {/* Top Navbar */}
@@ -132,25 +208,45 @@ export default function WebDashboard() {
           <input type="text" placeholder="Pesquisar artes..." className="w-full bg-[#111] border border-[#222] rounded-full px-6 py-2 text-sm outline-none focus:border-green-500 transition-colors" />
         </div>
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/app')} className="hidden sm:block bg-green-500 text-black font-black uppercase tracking-widest text-xs px-6 py-2.5 rounded-full hover:bg-green-400 transition-colors shadow-[0_0_15px_rgba(34,197,94,0.3)]">
+          <button onClick={() => {
+            if (user) setShowPostModal(true);
+            else setShowAuthModal(true);
+          }} className="hidden sm:block bg-green-500 text-black font-black uppercase tracking-widest text-xs px-6 py-2.5 rounded-full hover:bg-green-400 transition-colors shadow-[0_0_15px_rgba(34,197,94,0.3)]">
             + Nova Arte
           </button>
           
           {/* Menu de Perfil / Logout */}
-          <div className="relative group cursor-pointer">
-            <div className="w-10 h-10 rounded-full bg-[#222] border-2 border-green-500 flex items-center justify-center overflow-hidden">
-               {profile?.badge ? (
-                 <img src={BADGES.find(b => b.id === profile.badge)?.image || '/badges/free_1.png'} className="w-6 h-6 object-contain" />
-               ) : (
-                 <UserIcon size={18} />
-               )}
+          {user ? (
+            <div className="relative group cursor-pointer">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-700 p-[2px]">
+                <div className="w-full h-full bg-black rounded-full overflow-hidden flex items-center justify-center relative">
+                  <span className="text-green-400 font-black text-lg">{profile?.display_name?.charAt(0).toUpperCase() || 'U'}</span>
+                  {profile?.is_pro && (
+                    <div className="absolute inset-0 bg-gradient-to-tr from-yellow-500/20 to-transparent mix-blend-overlay"></div>
+                  )}
+                </div>
+              </div>
+              <div className="absolute right-0 top-full mt-2 w-48 bg-[#0a0a0a] border border-[#222] rounded-xl shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all transform origin-top-right scale-95 group-hover:scale-100 p-2 flex flex-col gap-1">
+                <div className="px-3 py-2 border-b border-[#222] mb-1">
+                  <div className="font-bold text-sm truncate">{profile?.display_name || 'Usuário'}</div>
+                  <div className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">{profile?.is_pro ? 'Membro PRO' : 'Membro Gratuito'}</div>
+                </div>
+                <button onClick={() => navigate('/profile')} className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors flex items-center gap-2">
+                  <UserIcon size={14}/> Meu Perfil
+                </button>
+                <button onClick={() => navigate('/app')} className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors flex items-center gap-2">
+                  <ImageIcon size={14}/> Estúdio (App)
+                </button>
+                <button onClick={handleSignOut} className="w-full text-left px-3 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors flex items-center gap-2">
+                  <LogOut size={14}/> Sair da Conta
+                </button>
+              </div>
             </div>
-            <div className="absolute right-0 top-12 w-48 bg-[#111] border border-[#222] rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all flex flex-col overflow-hidden">
-               <button onClick={() => navigate('/profile')} className="p-3 text-sm font-bold hover:bg-white/5 flex items-center gap-2 w-full text-left"><UserIcon size={16}/> Meu Perfil</button>
-               <button onClick={() => navigate('/app')} className="p-3 text-sm font-bold hover:bg-white/5 flex items-center gap-2 w-full text-left sm:hidden"><ImageIcon size={16}/> Estúdio</button>
-               <button onClick={handleSignOut} className="p-3 text-sm font-bold hover:bg-red-500/10 text-red-400 flex items-center gap-2 w-full text-left border-t border-[#222]"><LogOut size={16}/> Sair</button>
-            </div>
-          </div>
+          ) : (
+            <button onClick={() => setShowAuthModal(true)} className="bg-[#111] text-white border border-[#333] hover:border-green-500 font-bold text-xs px-5 py-2 rounded-full transition-colors">
+              Entrar / Registrar
+            </button>
+          )}
         </div>
       </header>
 
@@ -215,6 +311,12 @@ export default function WebDashboard() {
                         <div className="text-xs text-gray-500">{new Date(post.created_at).toLocaleDateString('pt-BR')}</div>
                       </div>
                     </div>
+                    {/* Delete Post Button */}
+                    {user?.id === post.profiles?.id && (
+                      <button onClick={() => handleDeletePost(post.id)} className="text-gray-600 hover:text-red-500 transition-colors ml-4 p-1 rounded hover:bg-red-500/10" title="Apagar Arte">
+                        <LogOut size={14} className="rotate-180" />
+                      </button>
+                    )}
                   </div>
                   
                   {/* Post Image */}
@@ -321,6 +423,66 @@ export default function WebDashboard() {
         </aside>
 
       </div>
+
+      {/* Auth Modal */}
+      <AnimatePresence>
+        {showAuthModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-[#111] border border-[#222] rounded-3xl p-8 max-w-sm w-full relative shadow-2xl">
+              <button onClick={() => setShowAuthModal(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white"><LogOut size={20}/></button>
+              <div className="flex justify-center mb-6"><img src="/logo.png" alt="Logo" className="w-12 h-12 image-pixelated"/></div>
+              <h2 className="text-xl font-black text-center uppercase tracking-widest mb-6">
+                {authMode === 'login' ? 'Entrar' : 'Registrar'}
+              </h2>
+              <form onSubmit={handleAuth} className="flex flex-col gap-4">
+                {authMode === 'register' && (
+                  <input required type="text" placeholder="Nome de Artista" value={authName} onChange={e => setAuthName(e.target.value)} className="w-full bg-black border border-[#333] rounded-xl px-4 py-3 outline-none focus:border-green-500" />
+                )}
+                <input required type="email" placeholder="E-mail" value={authEmail} onChange={e => setAuthEmail(e.target.value)} className="w-full bg-black border border-[#333] rounded-xl px-4 py-3 outline-none focus:border-green-500" />
+                <input required type="password" placeholder="Senha" value={authPassword} onChange={e => setAuthPassword(e.target.value)} className="w-full bg-black border border-[#333] rounded-xl px-4 py-3 outline-none focus:border-green-500" />
+                <button disabled={authLoading} className="w-full bg-green-500 text-black font-black uppercase text-sm py-3 rounded-xl hover:bg-green-400 mt-2">
+                  {authLoading ? 'Aguarde...' : (authMode === 'login' ? 'Entrar na Conta' : 'Criar Conta')}
+                </button>
+              </form>
+              <div className="mt-6 text-center text-sm text-gray-400">
+                {authMode === 'login' ? 'Novo por aqui?' : 'Já tem conta?'}{' '}
+                <button onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')} className="text-green-500 hover:underline font-bold">
+                  {authMode === 'login' ? 'Criar perfil' : 'Fazer login'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Post Modal */}
+      <AnimatePresence>
+        {showPostModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-[#111] border border-[#222] rounded-3xl p-8 max-w-md w-full relative shadow-2xl">
+              <button onClick={() => setShowPostModal(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white"><LogOut size={20}/></button>
+              <h2 className="text-xl font-black mb-6 uppercase tracking-widest text-green-400">Publicar Arte</h2>
+              <form onSubmit={handlePost} className="flex flex-col gap-4">
+                <div>
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block">Título da Arte</label>
+                  <input required type="text" placeholder="Ex: Dragão de Fogo" value={postTitle} onChange={e => setPostTitle(e.target.value)} className="w-full bg-black border border-[#333] rounded-xl px-4 py-3 outline-none focus:border-green-500" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block">Arquivo (Imagem/GIF)</label>
+                  <input required type="file" accept="image/*" onChange={e => setPostFile(e.target.files?.[0] || null)} className="w-full bg-black border border-[#333] rounded-xl px-4 py-3 text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-green-500 file:text-black hover:file:bg-green-400" />
+                </div>
+                <div className="bg-black/50 p-4 rounded-xl border border-yellow-500/20 text-xs text-gray-400 mt-2">
+                  <span className="text-yellow-500 font-bold block mb-1">Dica:</span>
+                  Você pode usar o botão "Salvar" no Estúdio do App para baixar sua arte e depois enviá-la por aqui!
+                </div>
+                <button disabled={postLoading} className="w-full bg-green-500 text-black font-black uppercase text-sm py-3 rounded-xl hover:bg-green-400 mt-2 shadow-[0_0_15px_rgba(34,197,94,0.3)]">
+                  {postLoading ? 'Enviando...' : 'Publicar na Comunidade'}
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
