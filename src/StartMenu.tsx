@@ -44,6 +44,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
   const [authSuccess, setAuthSuccess] = useState<string | null>(null);  
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [isPro, setIsPro] = useState(false);
+  const [showProModal, setShowProModal] = useState(false);
   const [projectGridSize, setProjectGridSize] = useState(() => {
     const saved = localStorage.getItem('pixel_grid_size');
     return saved ? parseInt(saved, 10) : 3;
@@ -77,9 +78,9 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
   };
 
   const shortcutLabels: Record<string, string> = {
-    pencil: 'Lápis', eraser: 'Borracha', fill: 'Balde', picker: 'Conta-gotas',
-    shape: 'Formas', select: 'Seleção', hand: 'Mover (Mão)', text: 'Texto',
-    undo: 'Desfazer (Ctrl+)', redo: 'Refazer (Ctrl+)', grid: 'Malha', play: 'Animação',
+    pencil: 'LÃ¡pis', eraser: 'Borracha', fill: 'Balde', picker: 'Conta-gotas',
+    shape: 'Formas', select: 'SeleÃ§Ã£o', hand: 'Mover (MÃ£o)', text: 'Texto',
+    undo: 'Desfazer (Ctrl+)', redo: 'Refazer (Ctrl+)', grid: 'Malha', play: 'AnimaÃ§Ã£o',
     clear: 'Limpar Camada', sound: 'Mutar/Desmutar Som',
     zoomIn: 'Zoom +', zoomOut: 'Zoom -', resetView: 'Resetar Zoom',
     save: 'Salvar Projeto', newFrame: 'Novo Frame',
@@ -87,8 +88,8 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
 
   const shortcutCategories = [
     { name: 'Ferramentas', keys: ['pencil', 'eraser', 'fill', 'picker', 'shape', 'select', 'hand', 'text'] },
-    { name: 'Edição', keys: ['undo', 'redo', 'clear', 'newFrame'] },
-    { name: 'Visualização', keys: ['grid', 'play', 'zoomIn', 'zoomOut', 'resetView'] },
+    { name: 'EdiÃ§Ã£o', keys: ['undo', 'redo', 'clear', 'newFrame'] },
+    { name: 'VisualizaÃ§Ã£o', keys: ['grid', 'play', 'zoomIn', 'zoomOut', 'resetView'] },
     { name: 'Sistema', keys: ['save', 'sound'] },
   ];
 
@@ -244,7 +245,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
     const newProject = { 
       ...project, 
       id: generateId(), 
-      name: `${project.name} (Cópia)` 
+      name: `${project.name} (CÃ³pia)` 
     };
     
     const updated = [...savedProjects, newProject];
@@ -308,7 +309,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
           directory: Directory.ExternalStorage,
           recursive: true,
         });
-        await Toast.show({ text: `✅ Salvo em ${folder}!`, duration: 'long' });
+        await Toast.show({ text: `âœ… Salvo em ${folder}!`, duration: 'long' });
       } catch {
         const link = document.createElement('a');
         link.download = fileName; link.href = dataUrl; link.click();
@@ -333,7 +334,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
           directory: Directory.ExternalStorage,
           recursive: true,
         });
-        await Toast.show({ text: `✅ GIF salvo!`, duration: 'long' });
+        await Toast.show({ text: `âœ… GIF salvo!`, duration: 'long' });
       } catch {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -443,7 +444,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
     
     const size = Math.max(14, Math.floor(canvas.height * 0.035));
     const padding = size * 0.8;
-    const text = `🐉 DragonArt • ${userName}`;
+    const text = `ðŸ‰ DragonArt â€¢ ${userName}`;
     
     ctx.save();
     ctx.font = `bold ${size}px "Press Start 2P", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
@@ -519,7 +520,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
 
         await Share.share({
           title: p.name,
-          text: `Confira minha arte "${p.name}" feita no DragonArt por ${userName}! 🐉✨`,
+          text: `Confira minha arte "${p.name}" feita no DragonArt por ${userName}! ðŸ‰âœ¨`,
           url: writeResult.uri,
           dialogTitle: 'Compartilhar Arte'
         });
@@ -530,7 +531,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
         try {
           await Share.share({
             title: p.name,
-            text: `Confira minha arte "${p.name}" feita no DragonArt por ${userName}! 🐉✨`,
+            text: `Confira minha arte "${p.name}" feita no DragonArt por ${userName}! ðŸ‰âœ¨`,
             dialogTitle: 'Compartilhar Arte'
           });
         } catch (e) {}
@@ -541,7 +542,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
       try {
         const blob = await (await fetch(dataUrl)).blob();
         const file = new File([blob], `${p.name}.${format === 'jpeg' ? 'jpg' : 'png'}`, { type: `image/${format}` });
-        await navigator.share({ title: `${p.name} - DragonArt`, text: `Feito com 🐉 DragonArt por ${userName}`, files: [file] });
+        await navigator.share({ title: `${p.name} - DragonArt`, text: `Feito com ðŸ‰ DragonArt por ${userName}`, files: [file] });
         return;
       } catch {}
     }
@@ -625,13 +626,13 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
 
   const handlePostToCommunity = async (project: ProjectConfig) => {
     if (!session) {
-      setAuthError('Você precisa estar logado para postar na comunidade.');
+      setAuthError('VocÃª precisa estar logado para postar na comunidade.');
       setActiveTab('profile');
       return;
     }
 
     if (!project.thumbnail) {
-      alert('Este projeto não tem uma miniatura. Abra e salve o projeto primeiro.');
+      alert('Este projeto nÃ£o tem uma miniatura. Abra e salve o projeto primeiro.');
       return;
     }
 
@@ -662,7 +663,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
 
       if (insertError) throw insertError;
 
-      alert('Arte postada com sucesso na comunidade! 🐉✨');
+      alert('Arte postada com sucesso na comunidade! ðŸ‰âœ¨');
       if (activeTab === 'community') fetchCommunityPosts();
     } catch (err: any) {
       console.error('Erro ao postar:', err);
@@ -673,21 +674,21 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
   };
 
   const experienceLevels = [
-    { id: 'iniciante' as const, label: 'Iniciante', icon: '🌱', desc: 'Começando no pixel art' },
-    { id: 'intermediario' as const, label: 'Intermediário', icon: '⚡', desc: 'Já domino o básico' },
-    { id: 'avancado' as const, label: 'Avançado', icon: '🔥', desc: 'Crio artes complexas' },
-    { id: 'mestre' as const, label: 'Mestre', icon: '👑', desc: 'Artista profissional' },
+    { id: 'iniciante' as const, label: 'Iniciante', icon: 'ðŸŒ±', desc: 'ComeÃ§ando no pixel art' },
+    { id: 'intermediario' as const, label: 'IntermediÃ¡rio', icon: 'âš¡', desc: 'JÃ¡ domino o bÃ¡sico' },
+    { id: 'avancado' as const, label: 'AvanÃ§ado', icon: 'ðŸ”¥', desc: 'Crio artes complexas' },
+    { id: 'mestre' as const, label: 'Mestre', icon: 'ðŸ‘‘', desc: 'Artista profissional' },
   ];
 
   const badges = [
     { id: 'leaf', image: '/badges/free_1.png', label: 'Folha', pro: false },
     { id: 'artist', image: '/badges/free_2.png', label: 'Pedra', pro: false },
-    { id: 'sparkles', image: '/badges/free_3.png', label: 'Lápis', pro: false },
-    { id: 'heart', image: '/badges/free_4.png', label: 'Coração', pro: false },
+    { id: 'sparkles', image: '/badges/free_3.png', label: 'LÃ¡pis', pro: false },
+    { id: 'heart', image: '/badges/free_4.png', label: 'CoraÃ§Ã£o', pro: false },
     { id: 'fire', image: '/badges/free_5.png', label: 'Selo Amarelo', pro: false },
     { id: 'star', image: '/badges/pro_1.png', label: 'Cristal Pro', pro: true, glow: 'rgba(56, 189, 248, 0.8)' },
     { id: 'crown', image: '/badges/pro_2.png', label: 'Fogo Pro', pro: true, glow: 'rgba(239, 68, 68, 0.8)' },
-    { id: 'diamond', image: '/badges/pro_3.png', label: 'Cósmico Pro', pro: true, glow: 'rgba(168, 85, 247, 0.8)' },
+    { id: 'diamond', image: '/badges/pro_3.png', label: 'CÃ³smico Pro', pro: true, glow: 'rgba(168, 85, 247, 0.8)' },
     { id: 'dragon', image: '/badges/pro_4.png', label: 'Game Pro', pro: true, glow: 'rgba(34, 197, 94, 0.8)' },
     { id: 'verified', image: '/badges/pro_5.png', label: 'Dourado Pro', pro: true, glow: 'rgba(234, 179, 8, 0.8)' },
   ];
@@ -706,9 +707,9 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
       if (errorMsg === 'Email signups are disabled') {
          errorMsg = 'Cadastro por e-mail desativado no Supabase. Ative em: Authentication > Providers > Email.';
       } else if (errorMsg === 'User already registered') {
-         errorMsg = 'Este e-mail já está cadastrado.';
+         errorMsg = 'Este e-mail jÃ¡ estÃ¡ cadastrado.';
       } else if (errorMsg === 'Password should be at least 6 characters') {
-         errorMsg = 'A senha deve ter no mínimo 6 caracteres.';
+         errorMsg = 'A senha deve ter no mÃ­nimo 6 caracteres.';
       }
       setAuthError(errorMsg); 
       return; 
@@ -733,7 +734,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
       if (errorMsg === 'Invalid login credentials') {
          errorMsg = 'E-mail ou senha incorretos.';
       } else if (errorMsg === 'Email not confirmed') {
-         errorMsg = 'E-mail não confirmado. Por favor, verifique sua caixa de entrada e clique no link de confirmação.';
+         errorMsg = 'E-mail nÃ£o confirmado. Por favor, verifique sua caixa de entrada e clique no link de confirmaÃ§Ã£o.';
       }
       setAuthError(errorMsg); 
       return; 
@@ -783,7 +784,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg-app)] font-sans text-[var(--text-primary)] relative transition-colors duration-300 pb-24 overflow-x-hidden">
 
-      {/* Conteúdo com Abas */}
+      {/* ConteÃºdo com Abas */}
       <div className="flex-1 flex flex-col">
         <AnimatePresence mode="wait">
           {activeTab === 'home' && (
@@ -900,7 +901,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                             className="flex flex-col items-center gap-3 p-4 bg-black/20 rounded-2xl border border-white/5"
                           >
                             <div className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.15em]">
-                              Pré-visualização da Folha
+                              PrÃ©-visualizaÃ§Ã£o da Folha
                             </div>
                             <div className="relative flex items-center justify-center w-full" style={{ minHeight: '120px', maxHeight: '180px' }}>
                               <motion.div
@@ -917,14 +918,14 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                               >
                                 <div className="w-full h-full flex items-center justify-center">
                                   <span className="text-[10px] font-black text-[var(--accent-color)] drop-shadow-md" style={{ fontFamily: '"Press Start 2P", monospace' }}>
-                                    {customWidth}×{customHeight}
+                                    {customWidth}Ã—{customHeight}
                                   </span>
                                 </div>
                               </motion.div>
                             </div>
                             <div className="flex items-center gap-4 text-[10px] text-[var(--text-muted)] font-bold">
                               <span>{customWidth * customHeight} pixels</span>
-                              <span>•</span>
+                              <span>â€¢</span>
                               <span>{customWidth > customHeight ? 'Paisagem' : customWidth < customHeight ? 'Retrato' : 'Quadrado'}</span>
                             </div>
                           </motion.div>
@@ -938,6 +939,37 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                 </div>
 
                 <div className="lg:col-span-8 flex flex-col gap-6">
+                  {/* PRO Banner */}
+                  {!isPro && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      onClick={() => setShowProModal(true)}
+                      className="relative overflow-hidden cursor-pointer group rounded-[28px] border border-yellow-400/30 shadow-[0_0_30px_rgba(251,191,36,0.15)]"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/10 via-orange-500/10 to-yellow-400/10 group-hover:from-yellow-400/20 group-hover:via-orange-500/20 group-hover:to-yellow-400/20 transition-all" />
+                      <div className="absolute -top-20 -right-20 w-40 h-40 bg-yellow-400/5 rounded-full blur-3xl group-hover:bg-yellow-400/10 transition-all" />
+                      <div className="relative flex items-center gap-4 p-5">
+                        <div className="w-14 h-14 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl flex items-center justify-center shadow-lg shrink-0">
+                          <Star size={28} className="text-black fill-black" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-black text-white text-base tracking-wide">SEJA DRAGON ART PRO</h3>
+                          <p className="text-xs text-yellow-300/80 font-bold mt-0.5">ExportaÃ§Ã£o HD â€¢ Sem Marca D'Ã¡gua â€¢ Selos Exclusivos</p>
+                        </div>
+                        <ChevronRight size={24} className="text-yellow-400 shrink-0 group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </motion.div>
+                  )}
+                  {isPro && (
+                    <div className="flex items-center gap-3 p-4 bg-green-500/10 border border-green-500/20 rounded-2xl">
+                      <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center"><Check size={20} className="text-white" /></div>
+                      <div>
+                        <span className="font-black text-green-400 text-sm">DRAGON ART PRO ATIVO</span>
+                        <p className="text-[10px] text-green-300/60 font-bold">VocÃª tem acesso a todos os recursos premium!</p>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <h2 className="text-xl font-black flex items-center gap-3">
                       <LayersIcon className="text-[var(--accent-color)]" size={24} /> Meus Projetos
@@ -975,7 +1007,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                           <div className="p-3 flex items-center justify-between gap-2">
                             <div className="min-w-0 flex-1" onClick={() => onStart(p, isPro, profileName)}>
                               <h4 className="font-bold truncate text-sm cursor-pointer">{p.name}</h4>
-                              <p className="text-[10px] font-bold text-[var(--accent-color)]/60 uppercase">{p.width}x{p.height}px{p.frames && p.frames.length > 1 ? ` • ${p.frames.length}f` : ''}</p>
+                              <p className="text-[10px] font-bold text-[var(--accent-color)]/60 uppercase">{p.width}x{p.height}px{p.frames && p.frames.length > 1 ? ` â€¢ ${p.frames.length}f` : ''}</p>
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
                               <button onClick={(e) => { 
@@ -989,7 +1021,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                                 e.stopPropagation(); 
                                 console.log('Toggle Options Menu for:', p.id, 'Current state:', openMenuId);
                                 setOpenMenuId(openMenuId === p.id ? null : p.id); 
-                              }} className="p-2 text-white/40 hover:text-white hover:bg-white/5 rounded-xl transition-colors" title="Opções">
+                              }} className="p-2 text-white/40 hover:text-white hover:bg-white/5 rounded-xl transition-colors" title="OpÃ§Ãµes">
                                 <Settings size={16} />
                               </button>
                             </div>
@@ -1017,36 +1049,36 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                                 >
                                   {/* PNG */}
                                   <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider bg-white/5 flex items-center gap-2"><FileImage size={10} /> Exportar PNG</div>
-                                  <button onClick={(e) => { e.stopPropagation(); downloadProject(p, 'png'); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors"><Download size={14} /> Original (Grátis)</button>
+                                  <button onClick={(e) => { e.stopPropagation(); downloadProject(p, 'png'); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors"><Download size={14} /> Original (GrÃ¡tis)</button>
                                   <button onClick={(e) => { 
                                     e.stopPropagation(); 
                                     if(isPro) { downloadProject(p, 'png', 1); setOpenMenuId(null); } 
-                                    else { alert('A exportação Full HD é exclusiva para usuários PRO! Acesse a aba Perfil para assinar.'); }
+                                    else { alert('A exportaÃ§Ã£o Full HD Ã© exclusiva para usuÃ¡rios PRO! Acesse a aba Perfil para assinar.'); }
                                   }} className={`w-full px-4 py-2 text-sm flex items-center gap-2 transition-colors ${isPro ? 'hover:bg-[var(--accent-color)] hover:text-white' : 'opacity-70 text-yellow-400 hover:bg-yellow-400/10'}`}>
                                     {isPro ? <Download size={14} /> : <Lock size={14} />} Full HD (1080p) {isPro ? '' : 'PRO'}
                                   </button>
                                   <button onClick={(e) => { 
                                     e.stopPropagation(); 
                                     if(isPro) { downloadProject(p, 'png', 4); setOpenMenuId(null); } 
-                                    else { alert('A exportação 4K é exclusiva para usuários PRO! Acesse a aba Perfil para assinar.'); }
+                                    else { alert('A exportaÃ§Ã£o 4K Ã© exclusiva para usuÃ¡rios PRO! Acesse a aba Perfil para assinar.'); }
                                   }} className={`w-full px-4 py-2 text-sm flex items-center gap-2 transition-colors ${isPro ? 'hover:bg-[var(--accent-color)] hover:text-white' : 'opacity-70 text-yellow-400 hover:bg-yellow-400/10'}`}>
                                     {isPro ? <Download size={14} /> : <Lock size={14} />} Ultra HD (4K) {isPro ? '' : 'PRO'}
                                   </button>
                                   
                                   {/* JPG */}
                                   <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider bg-white/5 flex items-center gap-2"><ImageIcon size={10} /> Exportar JPG</div>
-                                  <button onClick={(e) => { e.stopPropagation(); downloadProject(p, 'jpeg'); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors"><Download size={14} /> Original (Grátis)</button>
+                                  <button onClick={(e) => { e.stopPropagation(); downloadProject(p, 'jpeg'); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors"><Download size={14} /> Original (GrÃ¡tis)</button>
                                   <button onClick={(e) => { 
                                     e.stopPropagation(); 
                                     if(isPro) { downloadProject(p, 'jpeg', 1); setOpenMenuId(null); } 
-                                    else { alert('A exportação Full HD é exclusiva para usuários PRO! Acesse a aba Perfil para assinar.'); }
+                                    else { alert('A exportaÃ§Ã£o Full HD Ã© exclusiva para usuÃ¡rios PRO! Acesse a aba Perfil para assinar.'); }
                                   }} className={`w-full px-4 py-2 text-sm flex items-center gap-2 transition-colors ${isPro ? 'hover:bg-[var(--accent-color)] hover:text-white' : 'opacity-70 text-yellow-400 hover:bg-yellow-400/10'}`}>
                                     {isPro ? <Download size={14} /> : <Lock size={14} />} Full HD (1080p) {isPro ? '' : 'PRO'}
                                   </button>
                                   <button onClick={(e) => { 
                                     e.stopPropagation(); 
                                     if(isPro) { downloadProject(p, 'jpeg', 4); setOpenMenuId(null); } 
-                                    else { alert('A exportação 4K é exclusiva para usuários PRO! Acesse a aba Perfil para assinar.'); }
+                                    else { alert('A exportaÃ§Ã£o 4K Ã© exclusiva para usuÃ¡rios PRO! Acesse a aba Perfil para assinar.'); }
                                   }} className={`w-full px-4 py-2 text-sm flex items-center gap-2 transition-colors ${isPro ? 'hover:bg-[var(--accent-color)] hover:text-white' : 'opacity-70 text-yellow-400 hover:bg-yellow-400/10'}`}>
                                     {isPro ? <Download size={14} /> : <Lock size={14} />} Ultra HD (4K) {isPro ? '' : 'PRO'}
                                   </button>
@@ -1054,18 +1086,18 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                                   {/* GIF */}
                                   {p.frames && p.frames.length > 1 && (<>
                                     <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider bg-white/5 flex items-center gap-2"><Film size={10} /> GIF Animado</div>
-                                    <button onClick={(e) => { e.stopPropagation(); downloadGif(p); setOpenMenuId(null); }} disabled={exportingId === p.id} className="w-full px-4 py-2 text-sm hover:bg-green-600 hover:text-white flex items-center gap-2 transition-colors disabled:opacity-50"><Film size={14} /> {exportingId === p.id ? 'Exportando...' : 'Original (Grátis)'}</button>
+                                    <button onClick={(e) => { e.stopPropagation(); downloadGif(p); setOpenMenuId(null); }} disabled={exportingId === p.id} className="w-full px-4 py-2 text-sm hover:bg-green-600 hover:text-white flex items-center gap-2 transition-colors disabled:opacity-50"><Film size={14} /> {exportingId === p.id ? 'Exportando...' : 'Original (GrÃ¡tis)'}</button>
                                     <button onClick={(e) => { 
                                       e.stopPropagation(); 
                                       if(isPro) { downloadGif(p, 1); setOpenMenuId(null); } 
-                                      else { alert('A exportação Full HD é exclusiva para usuários PRO! Acesse a aba Perfil para assinar.'); }
+                                      else { alert('A exportaÃ§Ã£o Full HD Ã© exclusiva para usuÃ¡rios PRO! Acesse a aba Perfil para assinar.'); }
                                     }} disabled={exportingId === p.id} className={`w-full px-4 py-2 text-sm flex items-center gap-2 transition-colors disabled:opacity-50 ${isPro ? 'hover:bg-green-600 hover:text-white' : 'opacity-70 text-yellow-400 hover:bg-yellow-400/10'}`}>
                                       {isPro ? <Film size={14} /> : <Lock size={14} />} {exportingId === p.id ? 'Exportando...' : `Full HD (1080p) ${isPro ? '' : 'PRO'}`}
                                     </button>
                                     <button onClick={(e) => { 
                                       e.stopPropagation(); 
                                       if(isPro) { downloadGif(p, 4); setOpenMenuId(null); } 
-                                      else { alert('A exportação 4K é exclusiva para usuários PRO! Acesse a aba Perfil para assinar.'); }
+                                      else { alert('A exportaÃ§Ã£o 4K Ã© exclusiva para usuÃ¡rios PRO! Acesse a aba Perfil para assinar.'); }
                                     }} disabled={exportingId === p.id} className={`w-full px-4 py-2 text-sm flex items-center gap-2 transition-colors disabled:opacity-50 ${isPro ? 'hover:bg-green-600 hover:text-white' : 'opacity-70 text-yellow-400 hover:bg-yellow-400/10'}`}>
                                       {isPro ? <Film size={14} /> : <Lock size={14} />} Ultra HD (4K) {isPro ? '' : 'PRO'}
                                     </button>
@@ -1107,24 +1139,24 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="flex-1 max-w-4xl mx-auto w-full p-6 flex flex-col items-center justify-start overflow-y-auto"
+              className="flex-1 max-w-4xl mx-auto w-full p-4 sm:p-6 flex flex-col items-center justify-start overflow-y-auto gap-6"
             >
               {/* Auth Messages */}
               <AnimatePresence>
                 {authError && (
-                  <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full max-w-md mb-4 p-4 bg-red-500/15 border border-red-500/30 rounded-2xl text-red-400 text-sm font-bold text-center">
+                  <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full max-w-md p-4 bg-red-500/15 border border-red-500/30 rounded-2xl text-red-400 text-sm font-bold text-center">
                     {authError}
                   </motion.div>
                 )}
                 {authSuccess && (
-                  <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full max-w-md mb-4 p-4 bg-green-500/15 border border-green-500/30 rounded-2xl text-green-400 text-sm font-bold text-center">
+                  <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full max-w-md p-4 bg-green-500/15 border border-green-500/30 rounded-2xl text-green-400 text-sm font-bold text-center">
                     {authSuccess}
                   </motion.div>
                 )}
               </AnimatePresence>
 
               {!session ? (
-                /* ========== NOT LOGGED IN: Login / Register ========== */
+                /* ========== NOT LOGGED IN ========== */
                 <div className="w-full max-w-md flex flex-col items-center">
                   <div className="w-24 h-24 bg-gradient-to-br from-[var(--accent-color)] to-[var(--bg-panel)] rounded-[28px] flex items-center justify-center shadow-2xl border-4 border-white/10 mb-6">
                     <User size={48} className="text-white/40" />
@@ -1135,9 +1167,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                   <p className="text-[var(--text-muted)] text-sm font-bold mb-8">
                     {authMode === 'login' ? 'Acesse seu perfil de artista' : 'Cadastre-se e mostre suas artes'}
                   </p>
-
                   <div className="w-full space-y-4">
-                    {/* Register-only: Name */}
                     {authMode === 'register' && (
                       <div>
                         <label className="block text-xs font-black uppercase text-[var(--text-muted)] mb-2 tracking-widest pl-2">Nome de Artista</label>
@@ -1148,7 +1178,6 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                         </div>
                       </div>
                     )}
-
                     <div>
                       <label className="block text-xs font-black uppercase text-[var(--text-muted)] mb-2 tracking-widest pl-2">E-mail</label>
                       <div className="relative">
@@ -1157,20 +1186,17 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                           className="w-full bg-[var(--bg-panel)] border border-white/10 p-4 pl-12 rounded-2xl focus:border-[var(--accent-color)] outline-none font-bold" />
                       </div>
                     </div>
-
                     <div>
                       <label className="block text-xs font-black uppercase text-[var(--text-muted)] mb-2 tracking-widest pl-2">Senha</label>
                       <div className="relative">
                         <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" />
-                        <input type="password" placeholder="Mínimo 6 caracteres" value={authPassword} onChange={e => setAuthPassword(e.target.value)}
+                        <input type="password" placeholder="MÃ­nimo 6 caracteres" value={authPassword} onChange={e => setAuthPassword(e.target.value)}
                           className="w-full bg-[var(--bg-panel)] border border-white/10 p-4 pl-12 rounded-2xl focus:border-[var(--accent-color)] outline-none font-bold" />
                       </div>
                     </div>
-
-                    {/* Register-only: Experience Level */}
                     {authMode === 'register' && (
                       <div>
-                        <label className="block text-xs font-black uppercase text-[var(--text-muted)] mb-3 tracking-widest pl-2">Seu Nível</label>
+                        <label className="block text-xs font-black uppercase text-[var(--text-muted)] mb-3 tracking-widest pl-2">Seu NÃ­vel</label>
                         <div className="grid grid-cols-2 gap-3">
                           {experienceLevels.map(lvl => (
                             <button key={lvl.id} onClick={() => setExperienceLevel(lvl.id)}
@@ -1183,7 +1209,6 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                         </div>
                       </div>
                     )}
-
                     <button onClick={authMode === 'login' ? handleSignIn : handleSignUp} disabled={authLoading || !authEmail || !authPassword}
                       className="w-full p-5 bg-[var(--accent-color)] rounded-2xl text-white font-black text-lg shadow-lg hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                       {authLoading ? (
@@ -1192,193 +1217,245 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                         <>{authMode === 'login' ? 'ENTRAR' : 'CRIAR CONTA'} <ChevronRight size={20} /></>
                       )}
                     </button>
-
                     <button onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthError(null); }}
                       className="w-full text-center text-sm font-bold text-[var(--text-muted)] hover:text-white transition-colors py-2">
-                      {authMode === 'login' ? 'Não tem conta? Cadastre-se' : 'Já tem conta? Faça login'}
+                      {authMode === 'login' ? 'NÃ£o tem conta? Cadastre-se' : 'JÃ¡ tem conta? FaÃ§a login'}
                     </button>
                   </div>
                 </div>
               ) : (
-                /* ========== LOGGED IN: Dashboard ========== */
-                <div className="w-full flex flex-col md:flex-row gap-8 items-start justify-center">
-                  {/* Left Column: Avatar & Info */}
-                  <div className="w-full md:w-1/3 flex flex-col items-center">
-                    <div className="relative group cursor-pointer mb-4" onClick={() => document.getElementById('profile-upload')?.click()}>
-                      <div className="w-36 h-36 bg-gradient-to-br from-[var(--accent-color)] to-[var(--bg-panel)] rounded-[36px] flex items-center justify-center shadow-2xl border-4 border-white/10 p-1 transition-transform group-hover:scale-105">
-                        <div className="w-full h-full bg-[var(--bg-panel)] rounded-[28px] overflow-hidden flex items-center justify-center relative">
-                          {profileImage ? (
-                            <img src={profileImage} alt="Avatar" className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-5xl">{experienceLevels.find(l => l.id === experienceLevel)?.icon || '🌱'}</span>
-                          )}
-                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                            <ImageIcon size={28} className="text-white" />
+                /* ========== LOGGED IN: Profile Dashboard ========== */
+                <div className="w-full flex flex-col gap-6">
+                  
+                  {/* Hero Card - Avatar + Info */}
+                  <div className="relative bg-[var(--bg-panel)] rounded-[32px] border border-white/5 shadow-2xl overflow-hidden">
+                    {/* Background glow from badge */}
+                    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                      <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full blur-[80px] opacity-30"
+                        style={{ background: badges.find(b => b.id === selectedBadge)?.glow || 'var(--accent-color)' }} />
+                      <div className="absolute -bottom-10 -left-10 w-40 h-40 rounded-full blur-[60px] opacity-20"
+                        style={{ background: badges.find(b => b.id === selectedBadge)?.glow || 'var(--accent-color)' }} />
+                    </div>
+                    
+                    <div className="relative p-6 flex flex-col sm:flex-row items-center gap-6">
+                      {/* Avatar with animated badge ring */}
+                      <div className="relative group cursor-pointer shrink-0" onClick={() => document.getElementById('profile-upload')?.click()}>
+                        {/* Animated glow ring */}
+                        {badges.find(b => b.id === selectedBadge)?.glow && (
+                          <motion.div
+                            animate={{ scale: [1, 1.08, 1], opacity: [0.4, 0.7, 0.4] }}
+                            transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+                            className="absolute -inset-2 rounded-[40px] pointer-events-none z-0"
+                            style={{ background: `radial-gradient(circle, ${badges.find(b => b.id === selectedBadge)?.glow} 0%, transparent 70%)` }}
+                          />
+                        )}
+                        <div className="relative w-32 h-32 bg-gradient-to-br from-[var(--accent-color)] to-[var(--bg-element)] rounded-[32px] flex items-center justify-center shadow-2xl border-4 border-white/10 p-1 z-10">
+                          <div className="w-full h-full bg-[var(--bg-panel)] rounded-[24px] overflow-hidden flex items-center justify-center">
+                            {profileImage ? (
+                              <img src={profileImage} alt="Avatar" className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-5xl">{experienceLevels.find(l => l.id === experienceLevel)?.icon || 'ðŸŒ±'}</span>
+                            )}
                           </div>
                         </div>
-                      </div>
-                      <input id="profile-upload" type="file" accept="image/*" className="hidden" onChange={handleProfileImageUpload} />
-                      <div className="absolute -bottom-2 -right-2 bg-[var(--accent-color)] p-2 rounded-xl shadow-lg">
-                        <Pencil size={14} className="text-white" />
-                      </div>
-                      {/* Badge Seal on Avatar */}
-                      <div className="absolute top-0 right-0 bg-black/80 backdrop-blur-md w-12 h-12 rounded-full flex items-center justify-center border-2 border-white/20 z-10 translate-x-2 -translate-y-2 overflow-visible"
-                           style={{ boxShadow: badges.find(b => b.id === selectedBadge)?.glow ? `0 0 15px ${badges.find(b => b.id === selectedBadge)?.glow}` : '0 4px 6px rgba(0,0,0,0.3)' }}>
-                        <div className="absolute inset-0 rounded-full" style={{ background: badges.find(b => b.id === selectedBadge)?.glow ? `radial-gradient(circle, ${badges.find(b => b.id === selectedBadge)?.glow} 0%, transparent 70%)` : 'none', opacity: 0.6 }}></div>
-                        <img src={badges.find(b => b.id === selectedBadge)?.image || '/badges/free_1.png'} className="w-10 h-10 object-contain relative z-10" alt="Selo" style={{ filter: badges.find(b => b.id === selectedBadge)?.glow ? `drop-shadow(0 0 5px ${badges.find(b => b.id === selectedBadge)?.glow})` : 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }} />
-                      </div>
-                    </div>
-
-                    {/* Name */}
-                    <div className="flex items-center gap-3">
-                      <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)}
-                        className="bg-transparent border-none text-center text-2xl font-black text-white outline-none focus:bg-[var(--bg-panel)] rounded-2xl p-2 transition-colors" />
-                      <div className="relative flex items-center justify-center w-10 h-10">
-                        <div className="absolute inset-0 scale-150 blur-md rounded-full pointer-events-none" style={{ background: badges.find(b => b.id === selectedBadge)?.glow ? `radial-gradient(circle, ${badges.find(b => b.id === selectedBadge)?.glow} 0%, transparent 70%)` : 'none', opacity: 0.7 }}></div>
-                        <img src={badges.find(b => b.id === selectedBadge)?.image} className="w-full h-full object-contain relative z-10" alt="Selo" style={{ filter: badges.find(b => b.id === selectedBadge)?.glow ? `drop-shadow(0 0 8px ${badges.find(b => b.id === selectedBadge)?.glow})` : 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }} />
-                      </div>
-                    </div>
-
-                    {/* Experience Badge */}
-                    <div className="mt-1 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider flex items-center gap-1.5"
-                      style={{ background: 'var(--accent-color)', color: 'white', opacity: 0.9 }}>
-                      <Award size={14} />
-                      {experienceLevels.find(l => l.id === experienceLevel)?.label || 'Iniciante'}
-                    </div>
-
-                    {/* Email display */}
-                    <p className="text-xs text-[var(--text-muted)] font-bold mt-3 flex items-center gap-1">
-                      <Mail size={12} /> {session.user.email}
-                    </p>
-
-                    {/* Stats */}
-                    <div className="grid grid-cols-2 gap-3 w-full mt-5">
-                      <div className="p-3 bg-[var(--bg-panel)] rounded-2xl border border-white/5 flex flex-col items-center gap-1 shadow-md">
-                        <Star className="text-yellow-400" size={20} />
-                        <span className="text-lg font-black leading-none">0</span>
-                        <span className="text-[9px] font-bold uppercase opacity-50">Curtidas</span>
-                      </div>
-                      <div className="p-3 bg-[var(--bg-panel)] rounded-2xl border border-white/5 flex flex-col items-center gap-1 shadow-md">
-                        <FileImage className="text-[var(--accent-color)]" size={20} />
-                        <span className="text-lg font-black leading-none">{savedProjects.length}</span>
-                        <span className="text-[9px] font-bold uppercase opacity-50">Artes</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right Column: Security & Actions */}
-                  <div className="w-full md:w-2/3 flex flex-col gap-5">
-                    {/* Badge Selection Card */}
-                    <div className="bg-[var(--bg-panel)] rounded-[28px] p-6 border border-white/5 shadow-xl">
-                      <h3 className="text-lg font-black mb-5 flex items-center gap-3">
-                        <div className="p-2 bg-[var(--accent-color)]/20 rounded-xl"><Award size={18} className="text-[var(--accent-color)]" /></div>
-                        Seus Selos
-                      </h3>
-                      <div className="space-y-4">
-                        <div>
-                          <div className="text-xs font-black text-[var(--text-muted)] mb-2 uppercase tracking-widest pl-1">Selos Gratuitos</div>
-                          <div className="grid grid-cols-5 gap-3">
-                            {badges.filter(b => !b.pro).map(badge => {
-                              const isLocked = badge.pro && !isPro;
-                              return (
-                                <button
-                                  key={badge.id}
-                                  disabled={isLocked}
-                                  onClick={() => {
-                                    setSelectedBadge(badge.id);
-                                    sound.playClick();
-                                  }}
-                                  className={`aspect-square rounded-2xl flex items-center justify-center text-2xl transition-all relative ${
-                                    selectedBadge === badge.id 
-                                      ? 'bg-[var(--accent-color)] scale-110 shadow-lg border-2 border-white/20' 
-                                      : 'bg-white/5 hover:bg-white/10 grayscale-[0.5] opacity-50'
-                                  } ${isLocked ? 'cursor-not-allowed opacity-20' : 'cursor-pointer'}`}
-                                  title={badge.label}
-                                >
-                                  <div className="absolute inset-0 w-full h-full rounded-2xl blur-md scale-110 pointer-events-none transition-opacity" style={{ background: badge.glow ? `radial-gradient(circle, ${badge.glow} 0%, transparent 80%)` : 'none', opacity: selectedBadge === badge.id ? 0.8 : 0 }}></div>
-                                  <img src={badge.image} className="w-10 h-10 object-contain relative z-10" alt={badge.label} style={{ filter: badge.glow && selectedBadge === badge.id ? `drop-shadow(0 0 5px ${badge.glow})` : 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }} />
-                                  {isLocked && <Lock size={10} className="absolute bottom-1 right-1 text-white/50" />}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-xs font-black text-[var(--text-muted)] mb-2 uppercase tracking-widest pl-1">Selos PRO</div>
-                          <div className="grid grid-cols-5 gap-3">
-                            {badges.filter(b => b.pro).map(badge => {
-                              const isLocked = badge.pro && !isPro;
-                              return (
-                                <button
-                                  key={badge.id}
-                                  disabled={isLocked}
-                                  onClick={() => {
-                                    setSelectedBadge(badge.id);
-                                    sound.playClick();
-                                  }}
-                                  className={`aspect-square rounded-2xl flex items-center justify-center text-2xl transition-all relative ${
-                                    selectedBadge === badge.id 
-                                      ? 'bg-[var(--accent-color)] scale-110 shadow-lg border-2 border-white/20' 
-                                      : 'bg-white/5 hover:bg-white/10 grayscale-[0.5] opacity-50'
-                                  } ${isLocked ? 'cursor-not-allowed opacity-20' : 'cursor-pointer'}`}
-                                  title={badge.label}
-                                >
-                                  <div className="absolute inset-0 w-full h-full rounded-2xl blur-md scale-110 pointer-events-none transition-opacity" style={{ background: badge.glow ? `radial-gradient(circle, ${badge.glow} 0%, transparent 80%)` : 'none', opacity: selectedBadge === badge.id ? 0.8 : 0 }}></div>
-                                  <img src={badge.image} className="w-10 h-10 object-contain relative z-10" alt={badge.label} style={{ filter: badge.glow && selectedBadge === badge.id ? `drop-shadow(0 0 5px ${badge.glow})` : 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }} />
-                                  {isLocked && <Lock size={10} className="absolute bottom-1 right-1 text-white/50" />}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Security Card */}
-                    <div className="bg-[var(--bg-panel)] rounded-[28px] p-6 border border-white/5 shadow-xl">
-                      <h3 className="text-lg font-black mb-5 flex items-center gap-3">
-                        <div className="p-2 bg-[var(--accent-color)]/20 rounded-xl"><Shield size={18} className="text-[var(--accent-color)]" /></div>
-                        Segurança
-                      </h3>
-                      <div className="space-y-3">
-                        <input type="password" placeholder="Nova senha" value={newPassword} onChange={e => setNewPassword(e.target.value)}
-                          className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl focus:border-[var(--accent-color)] outline-none font-bold" />
-                        <input type="password" placeholder="Senha atual (confirmação)" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)}
-                          className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl focus:border-[var(--accent-color)] outline-none font-bold" />
-                        <button onClick={handleChangePassword} disabled={!newPassword || !currentPassword}
-                          className="w-full p-4 rounded-2xl font-black border-2 border-[var(--accent-color)] text-[var(--accent-color)] hover:bg-[var(--accent-color)] hover:text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-                          ATUALIZAR SENHA
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex flex-col gap-3">
-                      {!session?.user?.user_metadata?.is_pro && (
-                        <button 
-                          onClick={() => window.open(CONFIG.STRIPE_PRO_LINK, '_blank')}
-                          className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 hover:brightness-110 p-5 rounded-[20px] text-black font-black shadow-[0_0_20px_rgba(251,191,36,0.4)] flex items-center justify-center gap-2 active:scale-95 transition-all mb-2"
+                        <input id="profile-upload" type="file" accept="image/*" className="hidden" onChange={handleProfileImageUpload} />
+                        
+                        {/* Badge overlay on avatar corner */}
+                        <motion.div
+                          animate={badges.find(b => b.id === selectedBadge)?.glow ? { scale: [1, 1.15, 1] } : {}}
+                          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                          className="absolute -bottom-1 -right-1 w-14 h-14 bg-black/90 backdrop-blur-md rounded-full flex items-center justify-center border-2 border-white/20 z-20 shadow-xl"
+                          style={{ boxShadow: badges.find(b => b.id === selectedBadge)?.glow ? `0 0 20px ${badges.find(b => b.id === selectedBadge)?.glow}` : '0 4px 12px rgba(0,0,0,0.4)' }}
                         >
-                          <Star size={24} className="fill-black" /> SEJA DRAGON ART PRO
-                        </button>
-                      )}
-                      <div className="flex gap-3">
-                        <button onClick={handleSaveProfile}
-                          className="flex-1 bg-[var(--accent-color)] hover:brightness-110 p-4 rounded-[20px] text-white font-black shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all">
-                          <Check size={20} /> SALVAR
-                        </button>
-                        <button onClick={handleSignOut}
-                          className="p-4 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white rounded-[20px] font-black shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
-                          title="Sair da Conta">
-                          <LogOut size={20} /> SAIR
-                        </button>
+                          <img src={badges.find(b => b.id === selectedBadge)?.image || '/badges/free_1.png'} className="w-10 h-10 object-contain" alt="Selo"
+                            style={{ filter: badges.find(b => b.id === selectedBadge)?.glow ? `drop-shadow(0 0 6px ${badges.find(b => b.id === selectedBadge)?.glow})` : 'none' }} />
+                        </motion.div>
+                        
+                        {/* Edit overlay */}
+                        <div className="absolute inset-0 bg-black/50 rounded-[32px] opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity z-10">
+                          <Pencil size={28} className="text-white" />
+                        </div>
+                        
+                        {/* PRO crown */}
+                        {isPro && (
+                          <div className="absolute -top-2 -left-2 w-8 h-8 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center z-20 shadow-lg border-2 border-yellow-300">
+                            <span className="text-sm">ðŸ‘‘</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 flex flex-col items-center sm:items-start gap-2 min-w-0">
+                        <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)}
+                          className="bg-transparent border-none text-center sm:text-left text-2xl font-black text-white outline-none focus:bg-white/5 rounded-xl px-3 py-1 transition-colors w-full" />
+                        
+                        <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-start">
+                          <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1"
+                            style={{ background: 'var(--accent-color)', color: 'white' }}>
+                            <Award size={12} /> {experienceLevels.find(l => l.id === experienceLevel)?.label || 'Iniciante'}
+                          </span>
+                          {isPro && (
+                            <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-gradient-to-r from-yellow-400 to-orange-500 text-black flex items-center gap-1">
+                              <Star size={10} className="fill-black" /> PRO
+                            </span>
+                          )}
+                        </div>
+                        
+                        <p className="text-xs text-[var(--text-muted)] font-bold flex items-center gap-1 mt-1">
+                          <Mail size={12} /> {session.user.email}
+                        </p>
+                        
+                        {/* Stats */}
+                        <div className="flex gap-4 mt-2">
+                          <div className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-xl">
+                            <FileImage className="text-[var(--accent-color)]" size={16} />
+                            <div>
+                              <span className="text-sm font-black">{savedProjects.length}</span>
+                              <span className="text-[9px] font-bold text-[var(--text-muted)] ml-1">Artes</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-xl">
+                            <Star className="text-yellow-400" size={16} />
+                            <div>
+                              <span className="text-sm font-black">0</span>
+                              <span className="text-[9px] font-bold text-[var(--text-muted)] ml-1">Curtidas</span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
+
+                  {/* Badge Selection - Dynamic Grid */}
+                  <div className="bg-[var(--bg-panel)] rounded-[28px] p-5 border border-white/5 shadow-xl">
+                    <h3 className="text-base font-black mb-4 flex items-center gap-2">
+                      <div className="p-1.5 bg-[var(--accent-color)]/20 rounded-lg"><Award size={16} className="text-[var(--accent-color)]" /></div>
+                      Meus Selos
+                    </h3>
+                    
+                    {/* Free badges */}
+                    <div className="mb-3">
+                      <span className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] mb-2 block">Gratuitos</span>
+                      <div className="grid grid-cols-5 gap-2">
+                        {badges.filter(b => !b.pro).map(badge => (
+                          <motion.button
+                            key={badge.id}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => { setSelectedBadge(badge.id); sound.playClick(); }}
+                            className={`relative aspect-square rounded-2xl flex items-center justify-center transition-all ${
+                              selectedBadge === badge.id
+                                ? 'bg-[var(--accent-color)]/20 ring-2 ring-[var(--accent-color)] scale-105 shadow-lg'
+                                : 'bg-white/5 hover:bg-white/10 opacity-60 hover:opacity-100'
+                            }`}
+                          >
+                            <img src={badge.image} className="w-10 h-10 object-contain" alt={badge.label} />
+                            {selectedBadge === badge.id && (
+                              <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}
+                                className="absolute -top-1 -right-1 w-5 h-5 bg-[var(--accent-color)] rounded-full flex items-center justify-center">
+                                <Check size={10} className="text-white" />
+                              </motion.div>
+                            )}
+                          </motion.button>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Pro badges */}
+                    <div>
+                      <span className="text-[9px] font-black text-yellow-400 uppercase tracking-[0.2em] mb-2 block flex items-center gap-1">
+                        <Star size={10} className="fill-yellow-400" /> Selos PRO
+                      </span>
+                      <div className="grid grid-cols-5 gap-2">
+                        {badges.filter(b => b.pro).map(badge => {
+                          const isLocked = !isPro;
+                          return (
+                            <motion.button
+                              key={badge.id}
+                              whileTap={!isLocked ? { scale: 0.9 } : {}}
+                              onClick={() => {
+                                if (isLocked) { setShowProModal(true); return; }
+                                setSelectedBadge(badge.id); sound.playClick();
+                              }}
+                              className={`relative aspect-square rounded-2xl flex items-center justify-center transition-all ${
+                                selectedBadge === badge.id
+                                  ? 'ring-2 ring-yellow-400 scale-105 shadow-lg shadow-yellow-400/20'
+                                  : isLocked
+                                    ? 'bg-white/[0.02] opacity-30 cursor-not-allowed'
+                                    : 'bg-white/5 hover:bg-white/10 opacity-60 hover:opacity-100'
+                              }`}
+                              style={selectedBadge === badge.id && badge.glow ? {
+                                background: `radial-gradient(circle, ${badge.glow}20 0%, transparent 70%)`
+                              } : {}}
+                            >
+                              {/* Glow effect for selected PRO badge */}
+                              {selectedBadge === badge.id && badge.glow && (
+                                <motion.div
+                                  animate={{ opacity: [0.3, 0.7, 0.3] }}
+                                  transition={{ duration: 2, repeat: Infinity }}
+                                  className="absolute inset-0 rounded-2xl pointer-events-none"
+                                  style={{ boxShadow: `inset 0 0 20px ${badge.glow}40, 0 0 15px ${badge.glow}30` }}
+                                />
+                              )}
+                              <img src={badge.image} className="w-10 h-10 object-contain relative z-10" alt={badge.label}
+                                style={selectedBadge === badge.id && badge.glow ? { filter: `drop-shadow(0 0 8px ${badge.glow})` } : {}} />
+                              {isLocked && <Lock size={10} className="absolute bottom-1 right-1 text-white/40 z-10" />}
+                              {selectedBadge === badge.id && !isLocked && (
+                                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}
+                                  className="absolute -top-1 -right-1 w-5 h-5 bg-yellow-400 rounded-full flex items-center justify-center z-20">
+                                  <Check size={10} className="text-black" />
+                                </motion.div>
+                              )}
+                            </motion.button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* PRO Upgrade Card (only for free users) */}
+                  {!isPro && (
+                    <motion.div
+                      whileHover={{ scale: 1.01 }}
+                      onClick={() => setShowProModal(true)}
+                      className="relative overflow-hidden cursor-pointer rounded-[28px] border border-yellow-400/30 shadow-[0_0_40px_rgba(251,191,36,0.12)] group"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/10 via-orange-500/5 to-amber-600/10" />
+                      <div className="absolute -top-10 -right-10 w-32 h-32 bg-yellow-400/10 rounded-full blur-3xl" />
+                      <div className="relative p-6 flex items-center gap-5">
+                        <motion.div
+                          animate={{ rotate: [0, 5, -5, 0] }}
+                          transition={{ duration: 3, repeat: Infinity }}
+                          className="w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl flex items-center justify-center shadow-xl shrink-0"
+                        >
+                          <Star size={32} className="text-black fill-black" />
+                        </motion.div>
+                        <div className="flex-1">
+                          <h3 className="font-black text-white text-lg">Desbloqueie o PRO</h3>
+                          <p className="text-xs text-yellow-300/70 font-bold mt-1">ExportaÃ§Ã£o HD/4K â€¢ Sem marca d'Ã¡gua â€¢ Selos animados â€¢ Camadas ilimitadas</p>
+                        </div>
+                        <ChevronRight size={24} className="text-yellow-400 shrink-0 group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Actions Row */}
+                  <div className="flex gap-3">
+                    <button onClick={handleSaveProfile}
+                      className="flex-1 bg-[var(--accent-color)] hover:brightness-110 p-4 rounded-2xl text-white font-black shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all">
+                      <Check size={20} /> SALVAR PERFIL
+                    </button>
+                    <button onClick={handleSignOut}
+                      className="p-4 bg-white/5 text-[var(--text-muted)] hover:bg-red-500/20 hover:text-red-400 rounded-2xl font-black flex items-center justify-center gap-2 active:scale-95 transition-all border border-white/5"
+                      title="Sair da Conta">
+                      <LogOut size={20} />
+                    </button>
+                  </div>
+
                 </div>
               )}
             </motion.div>
           )}
+
 
           {activeTab === 'community' && (
             <motion.div
@@ -1419,7 +1496,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                   <div className="w-20 h-20 bg-[var(--accent-color)]/10 rounded-full flex items-center justify-center mb-6">
                     <Sun size={40} className="text-[var(--accent-color)]" />
                   </div>
-                  <h3 className="text-2xl font-black text-white mb-3">Ainda não há artes...</h3>
+                  <h3 className="text-2xl font-black text-white mb-3">Ainda nÃ£o hÃ¡ artes...</h3>
                   <p className="text-sm text-[var(--text-muted)] max-w-xs font-bold">Seja o primeiro a postar na comunidade v1.7.1!</p>
                 </div>
               ) : (
@@ -1444,7 +1521,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                         <div className="flex items-center justify-between mt-2">
                           <div className="flex items-center gap-1.5 overflow-hidden">
                             <span className="text-xs text-[var(--text-muted)] truncate max-w-[80px]">
-                              @{post.profiles?.display_name || 'Anônimo'}
+                              @{post.profiles?.display_name || 'AnÃ´nimo'}
                             </span>
                             {post.profiles?.is_pro && <Star size={10} className="text-green-400 fill-green-400" />}
                           </div>
@@ -1454,20 +1531,20 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                           </div>
                         </div>
 
-                        {/* Comentários na visualização do App */}
+                        {/* ComentÃ¡rios na visualizaÃ§Ã£o do App */}
                         {post.comments && post.comments.length > 0 && (
                           <div className="mt-3 pt-3 border-t border-white/5 flex flex-col gap-2 max-h-[100px] overflow-y-auto custom-scrollbar">
                             {post.comments.slice(0, 3).map((comment: any) => (
                               <div key={comment.id} className="bg-black/20 rounded-lg p-2 text-xs">
                                 <span className="font-bold text-[var(--accent-color)] mr-1">
-                                  {comment.profiles?.display_name || 'Usuário'}:
+                                  {comment.profiles?.display_name || 'UsuÃ¡rio'}:
                                 </span>
                                 <span className="text-gray-300">{comment.content}</span>
                               </div>
                             ))}
                               {post.comments.length > 3 && (
                                 <div className="text-[9px] text-gray-500 font-bold text-center mt-1">
-                                  Ver mais {post.comments.length - 3} comentários...
+                                  Ver mais {post.comments.length - 3} comentÃ¡rios...
                                 </div>
                               )}
                             </div>
@@ -1476,7 +1553,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                           {(!post.comments || post.comments.length === 0) && (
                             <div className="mt-3 pt-3 border-t border-white/5 text-center">
                               <span className="text-[9px] text-gray-500 font-bold">
-                                Sem comentários ainda.
+                                Sem comentÃ¡rios ainda.
                               </span>
                             </div>
                           )}
@@ -1491,14 +1568,14 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
         </AnimatePresence>
       </div>
 
-      {/* Navegação Inferior */}
+      {/* NavegaÃ§Ã£o Inferior */}
       <div className="fixed bottom-0 left-0 right-0 z-[100] pointer-events-none">
         {/* Solid background at the bottom to ensure the cutout matches perfectly */}
         <div className="absolute bottom-0 left-0 right-0 h-20 bg-[var(--bg-app)] -z-10"></div>
         <div className="bg-gradient-to-t from-[var(--bg-app)] to-transparent pt-24 pb-6 px-4">
           <div className="max-w-md mx-auto relative pointer-events-auto mt-4">
             
-            {/* Background da barra de navegação */}
+            {/* Background da barra de navegaÃ§Ã£o */}
             <div className="bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.8)] backdrop-blur-3xl h-[72px] flex items-center px-2 relative">
               
               <button 
@@ -1509,7 +1586,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                 <span className="text-[10px] font-black uppercase tracking-tighter mt-0.5">Perfil</span>
               </button>
 
-              {/* Espaço para o botão central elevado */}
+              {/* EspaÃ§o para o botÃ£o central elevado */}
               <div className="w-[88px] shrink-0 h-full relative flex items-center justify-center pointer-events-none">
                  <div className="absolute -top-[34px] flex flex-col items-center pointer-events-auto">
                     <button 
@@ -1522,7 +1599,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                     {/* The label can be absolute to not affect button centering */}
                  </div>
                  <span className={`absolute bottom-2 text-[10px] font-black uppercase tracking-tighter ${activeTab === 'home' ? 'text-[var(--accent-color)]' : 'text-white/40'}`}>
-                    Início
+                    InÃ­cio
                  </span>
               </div>
 
@@ -1551,7 +1628,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
           <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto" onClick={() => setShowSettings(false)}>
              <div className="bg-[var(--bg-panel)] w-full max-w-4xl p-8 rounded-[40px] border border-white/5 relative my-auto flex flex-col gap-6" onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-center pb-4 border-b border-white/10">
-                  <h3 className="text-2xl font-black flex items-center gap-3"><Settings className="text-[var(--accent-color)]" /> Configurações</h3>
+                  <h3 className="text-2xl font-black flex items-center gap-3"><Settings className="text-[var(--accent-color)]" /> ConfiguraÃ§Ãµes</h3>
                   <button onClick={() => setShowSettings(false)} className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors"><X size={24} /></button>
                 </div>
                 
@@ -1586,7 +1663,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                   {/* Audio */}
                   <div>
                     <h4 className="font-bold text-xl mb-4 flex items-center gap-2">
-                      Áudio e Sons
+                      Ãudio e Sons
                     </h4>
                     <div className="space-y-4">
                       <div className="p-5 bg-white/5 rounded-3xl border border-white/5 flex items-center justify-between">
@@ -1600,7 +1677,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                       </div>
                       <div className="p-5 bg-white/5 rounded-3xl border border-white/5 flex items-center justify-between">
                         <div>
-                          <span className="block font-bold">Música de Fundo</span>
+                          <span className="block font-bold">MÃºsica de Fundo</span>
                           <span className="text-xs opacity-40 font-bold">Ambiente relaxante</span>
                         </div>
                         <button onClick={toggleBgm} className={`w-14 h-7 rounded-full relative transition-colors ${bgmEnabled ? 'bg-[var(--accent-color)]' : 'bg-white/10'}`}>
@@ -1619,16 +1696,99 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
              <div className="bg-[var(--bg-panel)] w-full max-w-2xl p-8 rounded-[40px] border border-white/5 relative max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                 <h3 className="text-2xl font-black mb-6 flex items-center gap-3"><BookOpen className="text-[var(--accent-color)]" /> Diretrizes</h3>
                 <div className="space-y-4 text-sm opacity-70 leading-relaxed font-bold">
-                  <p>1. O Dragon Art é uma ferramenta profissional de pixel art.</p>
-                  <p>2. Suas artes são de sua propriedade exclusiva.</p>
+                  <p>1. O Dragon Art Ã© uma ferramenta profissional de pixel art.</p>
+                  <p>2. Suas artes sÃ£o de sua propriedade exclusiva.</p>
                   <p>3. Use gestos (2 dedos) para navegar livremente pela folha.</p>
-                  <p>4. Toque com 2 dedos fora da folha para desfazer ações rapidamente.</p>
+                  <p>4. Toque com 2 dedos fora da folha para desfazer aÃ§Ãµes rapidamente.</p>
                 </div>
                 <button onClick={() => setShowTutorials(false)} className="mt-8 w-full p-4 bg-[var(--accent-color)] rounded-2xl font-black text-white transition-all">ENTENDI TUDO</button>
              </div>
           </div>
         )}
       </AnimatePresence>
+
+      {/* ========== PRO FEATURES MODAL ========== */}
+      <AnimatePresence>
+        {showProModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setShowProModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 30 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 30 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="bg-gradient-to-b from-[#1a1a2e] to-[#16213e] rounded-[32px] w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl border border-yellow-400/20"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="relative p-8 pb-4 text-center">
+                <button onClick={() => setShowProModal(false)} className="absolute top-4 right-4 p-2 text-white/40 hover:text-white transition-colors">
+                  <X size={24} />
+                </button>
+                <motion.div
+                  animate={{ rotate: [0, 10, -10, 0], scale: [1, 1.1, 1] }}
+                  transition={{ duration: 3, repeat: Infinity }}
+                  className="w-20 h-20 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-[24px] flex items-center justify-center mx-auto mb-4 shadow-[0_0_40px_rgba(251,191,36,0.4)]"
+                >
+                  <Star size={40} className="text-black fill-black" />
+                </motion.div>
+                <h2 className="text-2xl font-black text-white">Dragon Art PRO</h2>
+                <p className="text-sm text-yellow-300/60 font-bold mt-1">Desbloqueie todo o poder criativo</p>
+              </div>
+
+              {/* Features List */}
+              <div className="px-6 pb-6 space-y-3">
+                {[
+                  { icon: '📐', title: 'Exportação HD / 4K / 8K / 16K', desc: 'Exporte suas artes em altíssima resolução para impressão e portfólio profissional' },
+                  { icon: '✨', title: 'Sem Marca D\'água', desc: 'Suas artes limpas, sem nenhum logo sobreposto nas exportações' },
+                  { icon: '🏅', title: 'Selos PRO Exclusivos', desc: 'Selos animados com efeitos de brilho para destacar seu perfil na comunidade' },
+                  { icon: '📚', title: 'Camadas Ilimitadas', desc: 'Sem limite de layers por frame, trabalhe com composições complexas' },
+                  { icon: '🎬', title: 'GIF HD / 4K', desc: 'Exporte suas animações em alta definição com qualidade profissional' },
+                  { icon: '🖼️', title: 'Sprite Sheet HD', desc: 'Perfeito para game devs que precisam de assets em alta resolução' },
+                  { icon: '🎨', title: 'Efeitos Avançados', desc: 'Acesso a todos os filtros e efeitos de imagem premium' },
+                  { icon: '⚡', title: 'Prioridade de Suporte', desc: 'Atendimento prioritário e acesso antecipado a novas features' },
+                ].map((feature, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.07 }}
+                    className="flex items-start gap-4 p-4 bg-white/[0.03] rounded-2xl border border-white/5 hover:bg-white/[0.06] transition-colors"
+                  >
+                    <span className="text-2xl shrink-0 mt-0.5">{feature.icon}</span>
+                    <div>
+                      <h4 className="font-black text-white text-sm">{feature.title}</h4>
+                      <p className="text-[11px] text-white/40 font-bold mt-0.5 leading-relaxed">{feature.desc}</p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+
+              {/* CTA */}
+              <div className="p-6 pt-2">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    window.open(CONFIG.STRIPE_PRO_LINK, '_blank');
+                    setShowProModal(false);
+                  }}
+                  className="w-full p-5 bg-gradient-to-r from-yellow-400 via-orange-500 to-yellow-400 rounded-2xl text-black font-black text-lg shadow-[0_0_30px_rgba(251,191,36,0.4)] flex items-center justify-center gap-3 active:scale-95 transition-all"
+                >
+                  <Star size={24} className="fill-black" /> ASSINAR PRO AGORA
+                </motion.button>
+                <p className="text-center text-[10px] text-white/20 font-bold mt-3">Pagamento seguro via Stripe • Cancele quando quiser</p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
