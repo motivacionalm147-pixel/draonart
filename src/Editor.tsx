@@ -7171,14 +7171,20 @@ export default function Editor({
                       Normal
                     </button>
                     <button
-                      onClick={() => setExportResolution("hd")}
-                      className={`py-2 rounded-lg border transition-colors text-sm font-medium ${
+                      onClick={() => {
+                        if (!isPro) {
+                          setShowUpgradeModal(true);
+                          return;
+                        }
+                        setExportResolution("hd");
+                      }}
+                      className={`py-2 rounded-lg border transition-colors text-sm font-medium relative ${
                         exportResolution === "hd"
                           ? "bg-[var(--accent-color)] border-[var(--accent-color)] text-white"
                           : "bg-[var(--bg-element)] border-[var(--border-strong)] text-[var(--text-muted)] hover:text-white"
                       }`}
                     >
-                      HD
+                      HD {!isPro && <Lock size={10} className="inline ml-1 opacity-50" />}
                     </button>
                     <button
                       onClick={() => {

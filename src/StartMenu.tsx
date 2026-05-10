@@ -1017,17 +1017,58 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                                 >
                                   {/* PNG */}
                                   <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider bg-white/5 flex items-center gap-2"><FileImage size={10} /> Exportar PNG</div>
-                                  <button onClick={(e) => { e.stopPropagation(); downloadProject(p, 'png', 1); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors"><Download size={14} /> Full HD (1080p)</button>
-                                  <button onClick={(e) => { e.stopPropagation(); downloadProject(p, 'png', 4); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors"><Download size={14} /> Ultra HD (4K)</button>
+                                  <button onClick={(e) => { e.stopPropagation(); downloadProject(p, 'png'); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors"><Download size={14} /> Original (Grátis)</button>
+                                  <button onClick={(e) => { 
+                                    e.stopPropagation(); 
+                                    if(isPro) { downloadProject(p, 'png', 1); setOpenMenuId(null); } 
+                                    else { alert('A exportação Full HD é exclusiva para usuários PRO! Acesse a aba Perfil para assinar.'); }
+                                  }} className={`w-full px-4 py-2 text-sm flex items-center gap-2 transition-colors ${isPro ? 'hover:bg-[var(--accent-color)] hover:text-white' : 'opacity-70 text-yellow-400 hover:bg-yellow-400/10'}`}>
+                                    {isPro ? <Download size={14} /> : <Lock size={14} />} Full HD (1080p) {isPro ? '' : 'PRO'}
+                                  </button>
+                                  <button onClick={(e) => { 
+                                    e.stopPropagation(); 
+                                    if(isPro) { downloadProject(p, 'png', 4); setOpenMenuId(null); } 
+                                    else { alert('A exportação 4K é exclusiva para usuários PRO! Acesse a aba Perfil para assinar.'); }
+                                  }} className={`w-full px-4 py-2 text-sm flex items-center gap-2 transition-colors ${isPro ? 'hover:bg-[var(--accent-color)] hover:text-white' : 'opacity-70 text-yellow-400 hover:bg-yellow-400/10'}`}>
+                                    {isPro ? <Download size={14} /> : <Lock size={14} />} Ultra HD (4K) {isPro ? '' : 'PRO'}
+                                  </button>
+                                  
                                   {/* JPG */}
                                   <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider bg-white/5 flex items-center gap-2"><ImageIcon size={10} /> Exportar JPG</div>
-                                  <button onClick={(e) => { e.stopPropagation(); downloadProject(p, 'jpeg', 1); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors"><Download size={14} /> Full HD (1080p)</button>
-                                  <button onClick={(e) => { e.stopPropagation(); downloadProject(p, 'jpeg', 4); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors"><Download size={14} /> Ultra HD (4K)</button>
+                                  <button onClick={(e) => { e.stopPropagation(); downloadProject(p, 'jpeg'); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors"><Download size={14} /> Original (Grátis)</button>
+                                  <button onClick={(e) => { 
+                                    e.stopPropagation(); 
+                                    if(isPro) { downloadProject(p, 'jpeg', 1); setOpenMenuId(null); } 
+                                    else { alert('A exportação Full HD é exclusiva para usuários PRO! Acesse a aba Perfil para assinar.'); }
+                                  }} className={`w-full px-4 py-2 text-sm flex items-center gap-2 transition-colors ${isPro ? 'hover:bg-[var(--accent-color)] hover:text-white' : 'opacity-70 text-yellow-400 hover:bg-yellow-400/10'}`}>
+                                    {isPro ? <Download size={14} /> : <Lock size={14} />} Full HD (1080p) {isPro ? '' : 'PRO'}
+                                  </button>
+                                  <button onClick={(e) => { 
+                                    e.stopPropagation(); 
+                                    if(isPro) { downloadProject(p, 'jpeg', 4); setOpenMenuId(null); } 
+                                    else { alert('A exportação 4K é exclusiva para usuários PRO! Acesse a aba Perfil para assinar.'); }
+                                  }} className={`w-full px-4 py-2 text-sm flex items-center gap-2 transition-colors ${isPro ? 'hover:bg-[var(--accent-color)] hover:text-white' : 'opacity-70 text-yellow-400 hover:bg-yellow-400/10'}`}>
+                                    {isPro ? <Download size={14} /> : <Lock size={14} />} Ultra HD (4K) {isPro ? '' : 'PRO'}
+                                  </button>
+                                  
                                   {/* GIF */}
                                   {p.frames && p.frames.length > 1 && (<>
                                     <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider bg-white/5 flex items-center gap-2"><Film size={10} /> GIF Animado</div>
-                                    <button onClick={(e) => { e.stopPropagation(); downloadGif(p, 1); setOpenMenuId(null); }} disabled={exportingId === p.id} className="w-full px-4 py-2 text-sm hover:bg-green-600 hover:text-white flex items-center gap-2 transition-colors disabled:opacity-50"><Film size={14} /> {exportingId === p.id ? 'Exportando...' : 'Full HD (1080p)'}</button>
-                                    <button onClick={(e) => { e.stopPropagation(); downloadGif(p, 4); setOpenMenuId(null); }} disabled={exportingId === p.id} className="w-full px-4 py-2 text-sm hover:bg-green-600 hover:text-white flex items-center gap-2 transition-colors disabled:opacity-50"><Film size={14} /> Ultra HD (4K)</button>
+                                    <button onClick={(e) => { e.stopPropagation(); downloadGif(p); setOpenMenuId(null); }} disabled={exportingId === p.id} className="w-full px-4 py-2 text-sm hover:bg-green-600 hover:text-white flex items-center gap-2 transition-colors disabled:opacity-50"><Film size={14} /> {exportingId === p.id ? 'Exportando...' : 'Original (Grátis)'}</button>
+                                    <button onClick={(e) => { 
+                                      e.stopPropagation(); 
+                                      if(isPro) { downloadGif(p, 1); setOpenMenuId(null); } 
+                                      else { alert('A exportação Full HD é exclusiva para usuários PRO! Acesse a aba Perfil para assinar.'); }
+                                    }} disabled={exportingId === p.id} className={`w-full px-4 py-2 text-sm flex items-center gap-2 transition-colors disabled:opacity-50 ${isPro ? 'hover:bg-green-600 hover:text-white' : 'opacity-70 text-yellow-400 hover:bg-yellow-400/10'}`}>
+                                      {isPro ? <Film size={14} /> : <Lock size={14} />} {exportingId === p.id ? 'Exportando...' : `Full HD (1080p) ${isPro ? '' : 'PRO'}`}
+                                    </button>
+                                    <button onClick={(e) => { 
+                                      e.stopPropagation(); 
+                                      if(isPro) { downloadGif(p, 4); setOpenMenuId(null); } 
+                                      else { alert('A exportação 4K é exclusiva para usuários PRO! Acesse a aba Perfil para assinar.'); }
+                                    }} disabled={exportingId === p.id} className={`w-full px-4 py-2 text-sm flex items-center gap-2 transition-colors disabled:opacity-50 ${isPro ? 'hover:bg-green-600 hover:text-white' : 'opacity-70 text-yellow-400 hover:bg-yellow-400/10'}`}>
+                                      {isPro ? <Film size={14} /> : <Lock size={14} />} Ultra HD (4K) {isPro ? '' : 'PRO'}
+                                    </button>
                                   </>)}
                                   {/* Share */}
                                   <div className="h-px bg-white/10 mx-2" />
