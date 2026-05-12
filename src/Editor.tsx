@@ -516,6 +516,9 @@ export default function Editor({
     return localStorage.getItem("pixel_app_background") || "var(--bg-app)";
   });
 
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [previousAppBackground, setPreviousAppBackground] = useState(localStorage.getItem("pixel_app_background") || "var(--bg-app)");
+
   const [bgBlur, setBgBlur] = useState<number>(() => {
     const saved = localStorage.getItem("pixel_bg_blur");
     return saved ? parseFloat(saved) : 0;
@@ -794,6 +797,7 @@ export default function Editor({
   >("transparent");
   const [transparentBackground, setTransparentBackground] = useState(false);
   const [canvasBackgroundColor, setCanvasBackgroundColor] = useState("#ffffff");
+  const [previousCanvasColor, setPreviousCanvasColor] = useState("#ffffff");
   const [symmetryX, setSymmetryX] = useState(false);
   const [symmetryY, setSymmetryY] = useState(false);
   const [symmetryDiag1, setSymmetryDiag1] = useState(false);
@@ -1061,27 +1065,47 @@ export default function Editor({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const padding = canvas.width * 0.03;
-    const fontSize = Math.max(12, canvas.height * 0.04);
-    
-    // Watermark background
-    ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
-    const bgHeight = fontSize * 1.5;
-    ctx.fillRect(0, canvas.height - bgHeight, canvas.width, bgHeight);
+    const fontSize = Math.max(9, Math.floor(canvas.height * 0.018));
+    const pad = fontSize * 0.5;
+    const text = `DragonArt \u00b7 ${artistName}`;
 
-    // Text
-    ctx.font = `bold ${fontSize}px Inter, sans-serif`;
-    ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+    ctx.save();
+    ctx.font = `bold ${fontSize}px Inter, -apple-system, sans-serif`;
+    const metrics = ctx.measureText(text);
+    const rectW = metrics.width + pad * 2;
+    const rectH = fontSize + pad;
+    const margin = fontSize * 0.4;
+    const x = canvas.width - rectW - margin;
+    const y = canvas.height - rectH - margin;
+
+    const r = Math.max(4, fontSize * 0.4);
+    ctx.globalAlpha = 0.3;
+    ctx.fillStyle = "#000000";
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + rectW - r, y);
+    ctx.quadraticCurveTo(x + rectW, y, x + rectW, y + r);
+    ctx.lineTo(x + rectW, y + rectH - r);
+    ctx.quadraticCurveTo(x + rectW, y + rectH, x + rectW - r, y + rectH);
+    ctx.lineTo(x + r, y + rectH);
+    ctx.quadraticCurveTo(x, y + rectH, x, y + rectH - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.globalAlpha = 0.06;
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.globalAlpha = 0.55;
+    ctx.fillStyle = "#ffffff";
     ctx.textBaseline = "middle";
-    
-    const brandText = "DragonArt \uD83D\uDC09";
-    const artistText = `by ${artistName}`;
-    
     ctx.textAlign = "left";
-    ctx.fillText(brandText, padding, canvas.height - bgHeight / 2);
-    
-    ctx.textAlign = "right";
-    ctx.fillText(artistText, canvas.width - padding, canvas.height - bgHeight / 2);
+    ctx.fillText(text, x + pad, y + rectH / 2);
+
+    ctx.restore();
   };
 
   const saveToNativeGallery = async (
@@ -4656,20 +4680,17 @@ export default function Editor({
   };
 
   // Share
-  const generateShareCanvas = (addWatermark = true): HTMLCanvasElement => {
+  const generateShareCanvas = (shouldWatermark = true): HTMLCanvasElement => {
     const scale = Math.max(10, Math.ceil(1080 / height));
     const canvas = document.createElement("canvas");
-    const watermarkHeight = addWatermark
-      ? Math.max(24, Math.floor(scale * 1.5))
-      : 0;
     canvas.width = width * scale;
-    canvas.height = height * scale + watermarkHeight;
+    canvas.height = height * scale;
     const ctx = canvas.getContext("2d")!;
     ctx.imageSmoothingEnabled = false;
 
     if (!transparentBackground) {
       ctx.fillStyle = canvasBackgroundColor;
-      ctx.fillRect(0, 0, canvas.width, height * scale);
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
     const frame = frames[currentFrame];
@@ -4695,20 +4716,42 @@ export default function Editor({
       ctx.fillText(t.text, t.x * scale, t.y * scale);
     });
 
-    if (addWatermark && watermarkHeight > 0) {
-      const wmY = height * scale;
-      ctx.fillStyle = "#111111";
-      ctx.fillRect(0, wmY, canvas.width, watermarkHeight);
-      const fontSize = Math.max(10, Math.floor(watermarkHeight * 0.5));
-      ctx.font = `bold ${fontSize}px "Press Start 2P", monospace, sans-serif`;
-      ctx.fillStyle = "#888888";
-      ctx.textAlign = "center";
+    if (shouldWatermark) {
+      // Small corner pill watermark
+      const fontSize = Math.max(9, Math.floor(canvas.height * 0.018));
+      const pad = fontSize * 0.5;
+      const wmText = "DragonArt";
+      ctx.save();
+      ctx.font = `bold ${fontSize}px Inter, -apple-system, sans-serif`;
+      const metrics = ctx.measureText(wmText);
+      const rectW = metrics.width + pad * 2;
+      const rectH = fontSize + pad;
+      const margin = fontSize * 0.4;
+      const rx = canvas.width - rectW - margin;
+      const ry = canvas.height - rectH - margin;
+      const r = Math.max(4, fontSize * 0.4);
+
+      ctx.globalAlpha = 0.3;
+      ctx.fillStyle = "#000000";
+      ctx.beginPath();
+      ctx.moveTo(rx + r, ry);
+      ctx.lineTo(rx + rectW - r, ry);
+      ctx.quadraticCurveTo(rx + rectW, ry, rx + rectW, ry + r);
+      ctx.lineTo(rx + rectW, ry + rectH - r);
+      ctx.quadraticCurveTo(rx + rectW, ry + rectH, rx + rectW - r, ry + rectH);
+      ctx.lineTo(rx + r, ry + rectH);
+      ctx.quadraticCurveTo(rx, ry + rectH, rx, ry + rectH - r);
+      ctx.lineTo(rx, ry + r);
+      ctx.quadraticCurveTo(rx, ry, rx + r, ry);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.globalAlpha = 0.55;
+      ctx.fillStyle = "#ffffff";
       ctx.textBaseline = "middle";
-      ctx.fillText(
-        "Made with DragonArt \uD83D\uDC09",
-        canvas.width / 2,
-        wmY + watermarkHeight / 2
-      );
+      ctx.textAlign = "left";
+      ctx.fillText(wmText, rx + pad, ry + rectH / 2);
+      ctx.restore();
     }
 
     return canvas;
@@ -5130,7 +5173,7 @@ export default function Editor({
       ref={containerRef}
       className="fixed inset-0 text-white overflow-hidden select-none touch-none flex flex-col font-sans"
       style={{
-        backgroundColor: appBackground.startsWith('/') ? '#000' : appBackground,
+        background: appBackground.startsWith('/') ? '#000' : appBackground,
         zIndex: 9999,
       }}
     >
@@ -5148,72 +5191,100 @@ export default function Editor({
       )}
 
       {/* Top Bar Component */}
-      <TopBar
-        shortcuts={shortcuts}
-        activePanel={activePanel}
-        togglePanel={togglePanel}
-        handleUndo={handleUndo}
-        handleRedo={handleRedo}
-        uiVisible={uiVisible}
-        setUiVisible={setUiVisible}
-        showGrid={showGrid}
-        setShowGrid={setShowGrid}
-        showGridSettings={showGridSettings}
-        setShowGridSettings={setShowGridSettings}
-        gridSize={gridSize}
-        setGridSize={setGridSize}
-        gridOpacity={gridOpacity}
-        setGridOpacity={setGridOpacity}
-        isGridLongPress={isGridLongPress}
-        longPressTimer={longPressTimer}
-        handleToolPointerUp={handleToolPointerUp}
-        setShowTutorials={setShowTutorials}
-        referenceImages={referenceImages}
-        setReferenceImages={setReferenceImages}
-        handleImportReference={handleImportReference}
-        uiScale={uiScale}
-        isPlaying={isPlaying}
-        setIsPlaying={setIsPlaying}
-        is3D={is3D}
-        setIs3D={setIs3D}
-        show3DSettings={show3DSettings}
-        setShow3DSettings={setShow3DSettings}
-        rotation={rotation}
-        setRotation={setRotation}
-        rotationX={rotationX}
-        setRotationX={setRotationX}
-        rotationY={rotationY}
-        setRotationY={setRotationY}
-        autoRotate3D={autoRotate3D}
-        setAutoRotate3D={setAutoRotate3D}
-        autoRotateSpeed={autoRotateSpeed}
-        setAutoRotateSpeed={setAutoRotateSpeed}
-        onBack={() => setShowSavePrompt(true)}
-        showUiToggle={showUiToggle}
-        gridMode={gridMode}
-        setGridMode={setGridMode}
-        gridOnlyOnZoom={gridOnlyOnZoom}
-        setGridOnlyOnZoom={setGridOnlyOnZoom}
-        sound={sound}
-        guideLines={guideLines}
-        setGuideLines={setGuideLines}
-        showGuidePanel={showGuidePanel}
-        setShowGuidePanel={setShowGuidePanel}
-        guideLinesVisible={guideLinesVisible}
-        setGuideLinesVisible={setGuideLinesVisible}
-        guideColor={guideColor}
-        setGuideColor={setGuideColor}
-        guideOpacity={guideOpacity}
-        setGuideOpacity={setGuideOpacity}
-        guideGroups={guideGroups}
-        setGuideGroups={setGuideGroups}
-        deleteAllFrames={deleteAllFrames}
-        showBatchActions={showBatchActions}
-        setShowBatchActions={setShowBatchActions}
-        toggleBatchActions={toggleBatchActions}
-      />
+      {!isPreviewMode ? (
+        <TopBar
+          shortcuts={shortcuts}
+          activePanel={activePanel}
+          togglePanel={togglePanel}
+          handleUndo={handleUndo}
+          handleRedo={handleRedo}
+          uiVisible={uiVisible}
+          setUiVisible={setUiVisible}
+          showGrid={showGrid}
+          setShowGrid={setShowGrid}
+          showGridSettings={showGridSettings}
+          setShowGridSettings={setShowGridSettings}
+          gridSize={gridSize}
+          setGridSize={setGridSize}
+          gridOpacity={gridOpacity}
+          setGridOpacity={setGridOpacity}
+          isGridLongPress={isGridLongPress}
+          longPressTimer={longPressTimer}
+          handleToolPointerUp={handleToolPointerUp}
+          setShowTutorials={setShowTutorials}
+          referenceImages={referenceImages}
+          setReferenceImages={setReferenceImages}
+          handleImportReference={handleImportReference}
+          uiScale={uiScale}
+          isPlaying={isPlaying}
+          setIsPlaying={setIsPlaying}
+          is3D={is3D}
+          setIs3D={setIs3D}
+          show3DSettings={show3DSettings}
+          setShow3DSettings={setShow3DSettings}
+          rotation={rotation}
+          setRotation={setRotation}
+          rotationX={rotationX}
+          setRotationX={setRotationX}
+          rotationY={rotationY}
+          setRotationY={setRotationY}
+          autoRotate3D={autoRotate3D}
+          setAutoRotate3D={setAutoRotate3D}
+          autoRotateSpeed={autoRotateSpeed}
+          setAutoRotateSpeed={setAutoRotateSpeed}
+          onBack={() => setShowSavePrompt(true)}
+          showUiToggle={showUiToggle}
+          gridMode={gridMode}
+          setGridMode={setGridMode}
+          gridOnlyOnZoom={gridOnlyOnZoom}
+          setGridOnlyOnZoom={setGridOnlyOnZoom}
+          sound={sound}
+          guideLines={guideLines}
+          setGuideLines={setGuideLines}
+          showGuidePanel={showGuidePanel}
+          setShowGuidePanel={setShowGuidePanel}
+          guideLinesVisible={guideLinesVisible}
+          setGuideLinesVisible={setGuideLinesVisible}
+          guideColor={guideColor}
+          setGuideColor={setGuideColor}
+          guideOpacity={guideOpacity}
+          setGuideOpacity={setGuideOpacity}
+          guideGroups={guideGroups}
+          setGuideGroups={setGuideGroups}
+          deleteAllFrames={deleteAllFrames}
+          showBatchActions={showBatchActions}
+          setShowBatchActions={setShowBatchActions}
+          toggleBatchActions={toggleBatchActions}
+        />
+      ) : (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-black/80 backdrop-blur-md border border-white/10 rounded-full px-4 py-2 flex items-center gap-4 z-[10000] animate-in slide-in-from-top-4 duration-300">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-black text-white uppercase tracking-wider">Visualização PRO</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => { sound.playClick(); setShowUpgradeModal(true); }}
+              className="px-4 py-1.5 bg-[var(--accent-color)] hover:bg-[var(--accent-hover)] text-white text-[10px] font-black rounded-full uppercase tracking-widest transition-all flex items-center gap-1 shadow-lg shadow-[var(--accent-color)]/20"
+            >
+              <Zap size={10} fill="currentColor" /> Comprar PRO
+            </button>
+            <button 
+              onClick={() => { 
+                sound.playClick(); 
+                setIsPreviewMode(false); 
+                setAppBackground(previousAppBackground);
+                setCanvasBackgroundColor(previousCanvasColor);
+              }}
+              className="p-1.5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-full transition-all"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Floating Controls Component */}
+      {!isPreviewMode && (
       <FloatingControls
         uiVisible={uiVisible}
         symmetryX={symmetryX}
@@ -5239,8 +5310,10 @@ export default function Editor({
         trashLongPressTimer={trashLongPressTimer}
         setShowDeletedHistory={setShowDeletedHistory}
       />
+      )}
 
       {/* Bottom Bar Component */}
+      {!isPreviewMode && (
       <BottomBar
         shortcuts={shortcuts}
         currentTool={currentTool}
@@ -5270,6 +5343,7 @@ export default function Editor({
         setShowLightingMenu={setShowLightingMenu}
         lightingLongPress={lightingLongPress}
       />
+      )}
 
 
 
@@ -6041,7 +6115,7 @@ export default function Editor({
 
       {/* Tool Panels */}
       <AnimatePresence>
-        {activePanel && activePanel !== "ajustes" && (
+        {!isPreviewMode && activePanel && activePanel !== "ajustes" && (
           <motion.div
             key={activePanel}
             drag
@@ -6972,10 +7046,13 @@ export default function Editor({
                   );
                 })()}
 
-              {activePanel === "layers" && (
+              {!isPreviewMode && activePanel === "layers" && (
                 <LayerPanel
                   layers={frames[currentFrame].layers}
                   currentLayer={currentLayer}
+                  isPro={isPro}
+                  setIsPreviewMode={setIsPreviewMode}
+                  setPreviousCanvasColor={setPreviousCanvasColor}
                   setCurrentLayer={(idx) => {
                     setCurrentLayer(idx);
                     triggerLayerFlash(frames[currentFrame].layers[idx].id);
@@ -7039,7 +7116,7 @@ export default function Editor({
         )}
       </AnimatePresence>
       <AnimatePresence>
-        {activePanel === "resize" && (
+        {!isPreviewMode && activePanel === "resize" && (
           <AjustesPanel
             setActivePanel={setActivePanel}
             setShowExportModal={setShowExportModal}
@@ -7070,6 +7147,10 @@ export default function Editor({
             setGridOnlyOnZoom={setGridOnlyOnZoom}
             gridSize={gridSize}
             setGridSize={setGridSize}
+            isPro={isPro}
+            setShowUpgradeModal={setShowUpgradeModal}
+            setIsPreviewMode={setIsPreviewMode}
+            setPreviousAppBackground={setPreviousAppBackground}
           />
         )}
       </AnimatePresence>

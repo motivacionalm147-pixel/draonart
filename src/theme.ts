@@ -173,6 +173,15 @@ export const themes: Theme[] = [
   }
 ];
 
+// 5 free themes — all others require PRO
+export const FREE_THEME_IDS: ReadonlySet<string> = new Set([
+  'default',   // Dragão Escuro
+  'light',     // Claro (Padrão)
+  'nord',      // Nord Escuro
+  'paper',     // Papel
+  'monokai',   // Monokai
+]);
+
 export function applyTheme(theme: Theme) {
   const root = document.documentElement;
   root.style.setProperty('--bg-app', theme.colors.bgApp);

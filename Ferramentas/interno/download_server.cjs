@@ -2,9 +2,9 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const PORT = 8080;
+const PORT = 9090;
 // Prioritize the APK in download_server, fallback to build folder
-const APK_NAME = 'DragonArt_v1_7_1.apk';
+const APK_NAME = 'DragonArt_v185_20260511_1217.apk';
 const LOCAL_APK_PATH = path.join(__dirname, 'download_server', APK_NAME);
 const BUILD_APK_PATH = path.join(__dirname, '..', '..', 'android/app/build/outputs/apk/debug/app-debug.apk');
 const INDEX_HTML_PATH = path.join(__dirname, 'download_server', 'index.html');

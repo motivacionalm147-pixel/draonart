@@ -7,8 +7,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #3b82f6;
-            --accent: #60a5fa;
+            --primary: #22c55e;
+            --accent: #4ade80;
             --bg: #050505;
             --surface: #111;
             --text: #ffffff;
@@ -32,8 +32,8 @@
             min-height: 100vh;
             overflow-x: hidden;
             background-image: 
-                radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.05) 0%, transparent 40%),
-                radial-gradient(circle at 80% 80%, rgba(59, 130, 246, 0.05) 0%, transparent 40%);
+                radial-gradient(circle at 20% 20%, rgba(34, 197, 94, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 80% 80%, rgba(34, 197, 94, 0.05) 0%, transparent 40%);
         }
 
         .container {
@@ -42,7 +42,7 @@
             background: var(--surface);
             padding: 3rem 2rem;
             border: 4px solid var(--primary);
-            box-shadow: 12px 12px 0px rgba(59, 130, 246, 0.3);
+            box-shadow: 12px 12px 0px rgba(34, 197, 94, 0.3);
             text-align: center;
             position: relative;
         }
@@ -70,13 +70,14 @@
         .version-badge {
             display: inline-block;
             background: var(--primary);
-            color: white;
+            color: black;
             padding: 0.5rem 1rem;
             border-radius: 4px;
             font-family: 'Press Start 2P', cursive;
             font-size: 0.7rem;
             margin-bottom: 2rem;
             box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.5);
+            font-weight: 900;
         }
 
         p {
@@ -94,7 +95,7 @@
 
         .btn {
             background-color: var(--primary);
-            color: white;
+            color: black;
             padding: 1.5rem;
             font-size: 1.2rem;
             font-weight: 900;
@@ -215,16 +216,16 @@
             gap: 0.5rem;
             margin-bottom: 2rem;
             font-size: 0.9rem;
-            color: #10b981;
+            color: #22c55e;
             font-weight: bold;
         }
 
         .status-dot {
             width: 8px;
             height: 8px;
-            background: #10b981;
+            background: #22c55e;
             border-radius: 50%;
-            box-shadow: 0 0 8px #10b981;
+            box-shadow: 0 0 8px #22c55e;
             animation: pulse 1.5s infinite;
         }
 
@@ -239,41 +240,40 @@
     <div class="container">
         <span class="dragon-icon">🐉</span>
         <h1>DRAGON ART</h1>
-        <div class="version-badge">ATUALIZAÇÃO v1.7.1</div>
+        <div class="version-badge">ATUALIZAÇÃO v1.8.5</div>
         
-        <div class="changelog">
-            <h3>O que há de novo (v1.7.1):</h3>
+            <div class="changelog">
+            <h3>Novidades (v1.8.5 - Pro Update):</h3>
             <ul>
-                <li><strong>📤 Compartilhamento Atualizado:</strong> Agora você pode escolher entre compartilhar em PNG ou JPG direto no menu.</li>
-                <li><strong>⚙️ Correções:</strong> Removido o salvamento automático ao clicar em compartilhar.</li>
-                <li><strong>📏 Ajustes de Interface:</strong> Adicionada barra para redimensionar a visualização na aba Meus Projetos.</li>
-                <li><strong>⚡ Motion Trail:</strong> Onion Skin agora anima durante playback com rastro de movimento (ciano/magenta).</li>
-                <li><strong>🎨 Fundo do Projeto:</strong> Toggle para PNG transparente ou JPG com fundo sólido direto no painel de camadas.</li>
-                <li><strong>📸 Exportação Inteligente:</strong> Salva/compartilha em PNG (transparente) ou JPG (fundo sólido) automaticamente.</li>
-                <li><strong>🔐 Supabase Auth:</strong> Login, registro e perfil dinâmico com níveis de experiência, com tratamento de erros.</li>
+                <li><strong>👤 Perfil de Fundador:</strong> Sua conta agora exibe status oficial e 1.2M de seguidores.</li>
+                <li><strong>✨ Avatares Animados PRO:</strong> 11 novos GIFs exclusivos para membros PRO com sistema de bloqueio.</li>
+                <li><strong>🚪 Novo Onboarding:</strong> Fluxo de entrada com desfoque dinâmico para novos usuários.</li>
+                <li><strong>🔒 Controle de Privacidade:</strong> Escolha entre posts Públicos ou Privados no seu perfil.</li>
+                <li><strong>🆓 Modo Visitante:</strong> Explore o app sem precisar criar conta instantaneamente.</li>
+                <li><strong>🛠️ Correções de Interface:</strong> Botões de salvar movidos para o topo para melhor usabilidade.</li>
             </ul>
-        </div>
+            </div>
         
         <div class="status">
             <div class="status-dot"></div>
-            SERVIDOR ONLINE
+            SERVIDOR DE BUILD ONLINE
         </div>
         
         <div class="btn-container">
-            <a href="DragonArt_v1_7_1.apk" class="btn">
+            <a href="DragonArt_v185_20260511_1217.apk" class="btn">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                BAIXAR APP v1.7.1 (APK)
+                BAIXAR APK v1.8.5 (ULTRA FIX)
             </a>
         </div>
 
         <div class="info">
             <div class="info-item">
                 <span class="info-label">Atualizado</span>
-                <span>08/05/2026</span>
+                <span>11/05/2026</span>
             </div>
             <div class="info-item">
                 <span class="info-label">Tamanho</span>
-                <span>~68 MB</span>
+                <span>~74 MB</span>
             </div>
         </div>
     </div>

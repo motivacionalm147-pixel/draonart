@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Trash2, Plus, Download, Palette, Settings, HelpCircle, X, PlayCircle, BookOpen, Pencil, Layers as LayersIcon, Film, Play, Copy, Sun, Check, Star, Image as ImageIcon, FileImage, User, Users, Home, LogOut, Shield, Award, Mail, Lock, ChevronRight, Share2, RefreshCw, Share as ShareIcon, Heart, ArrowRight } from 'lucide-react';
+import { Trash2, Plus, Download, Palette, Settings, HelpCircle, X, PlayCircle, BookOpen, Pencil, Layers as LayersIcon, Film, Play, Copy, Sun, Check, Star, Image as ImageIcon, FileImage, User, Users, Home, LogOut, Shield, Award, Mail, Lock, Eye, EyeOff, ChevronRight, Share2, RefreshCw, Share as ShareIcon, Heart, ArrowRight, Send, MessageSquare, Maximize2, UserPlus, ArrowLeft } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
@@ -8,8 +8,9 @@ import { Toast } from '@capacitor/toast';
 import GIF from 'gif.js';
 import { sound } from './sound';
 import { ProjectConfig } from './types';
-import { themes, applyTheme } from './theme';
-import { generateId } from './utils';
+import { themes, applyTheme, FREE_THEME_IDS } from './theme';
+import type { Theme } from './theme';
+import { generateId, getAvatarFallback } from './utils';
 import { supabase } from './lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 import { CONFIG } from './config';
@@ -45,6 +46,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [isPro, setIsPro] = useState(false);
   const [showProModal, setShowProModal] = useState(false);
+  const [previewTheme, setPreviewTheme] = useState<Theme | null>(null);
   const [projectGridSize, setProjectGridSize] = useState(() => {
     const saved = localStorage.getItem('pixel_grid_size');
     return saved ? parseInt(saved, 10) : 3;
@@ -66,6 +68,30 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showTutorials, setShowTutorials] = useState(false);
+
+  // Publish Modal State
+  const [showPublishModal, setShowPublishModal] = useState(false);
+  const [publishProject, setPublishProject] = useState<ProjectConfig | null>(null);
+  const [publishTitle, setPublishTitle] = useState('');
+  const [publishDescription, setPublishDescription] = useState('');
+  const [publishIsPrivate, setPublishIsPrivate] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+
+  // User Profile Modal State
+  const [viewingUser, setViewingUser] = useState<any | null>(null);
+  const [viewingUserPosts, setViewingUserPosts] = useState<any[]>([]);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followersCount, setFollowersCount] = useState(0);
+  const [profileModalTab, setProfileModalTab] = useState<'posts'|'followers'>('posts');
+  const [viewingUserFollowers, setViewingUserFollowers] = useState<any[]>([]);
+
+  // Zoomed Post Lightbox
+  const [zoomedPost, setZoomedPost] = useState<any | null>(null);
+
+  // Current User Stats
+  const [myFollowersCount, setMyFollowersCount] = useState(0);
+  const [myFollowingCount, setMyFollowingCount] = useState(0);
+  const [myTotalLikes, setMyTotalLikes] = useState(0);
 
 
   const defaultShortcuts: Record<string, string> = {
@@ -106,6 +132,26 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
   // Sound state
   const [sfxEnabled, setSfxEnabled] = useState(() => sound.isSfxEnabled());
   const [bgmEnabled, setBgmEnabled] = useState(() => sound.isBgmEnabled());
+  
+  // Community Interaction State
+  const [commentingOn, setCommentingOn] = useState<string | null>(null);
+  const [commentText, setCommentText] = useState<string>('');
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState<'welcome' | 'auth' | 'avatar' | 'name' | null>(null);
+
+  const avatars = Array.from({ length: 15 }, (_, i) => `/avatars/avatar_${i + 1}.jpg`);
+  const proAvatars = [
+    '/avatars/pro/0163e8951593014cb6f914cc9a4b9997.gif',
+    '/avatars/pro/0339983a96ad03b9eac740cc2e91f8e4.gif',
+    '/avatars/pro/1bf09baf6c26978e2bc031a5ff18d262.gif',
+    '/avatars/pro/555076dfc489b51a130e7ebc28900f2f.gif',
+    '/avatars/pro/56a2d535b69a257a6f1ca28c428d1ad6.gif',
+    '/avatars/pro/6c62876ccccef57dd0377eb5f9d1af07.gif',
+    '/avatars/pro/7a1d6f55ba4cfc1065e8095d52e4cc56.gif',
+    '/avatars/pro/8c07255e857006529ff2afb00ace29cc.gif',
+    '/avatars/pro/91a5fc1eba717eb1ca8652575b2691bf.gif',
+    '/avatars/pro/f23c314c7bb9ce67cd1b4be16cd7b316.gif'
+  ];
 
   const toggleSfx = () => {
     const newVal = !sfxEnabled;
@@ -203,10 +249,30 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
   }, []);
 
   const changeTheme = (themeId: string) => {
-    setCurrentThemeId(themeId);
-    localStorage.setItem('pixel_theme', themeId);
     const themeConfig = themes.find(t => t.id === themeId);
-    if (themeConfig) applyTheme(themeConfig);
+    if (!themeConfig) return;
+
+    // Free themes or PRO users apply directly
+    if (FREE_THEME_IDS.has(themeId) || isPro) {
+      setCurrentThemeId(themeId);
+      localStorage.setItem('pixel_theme', themeId);
+      applyTheme(themeConfig);
+      return;
+    }
+
+    // Paid theme for non-PRO user → show preview
+    applyTheme(themeConfig); // temporarily apply
+    setPreviewTheme(themeConfig);
+    setShowSettings(false);
+  };
+
+  const cancelThemePreview = () => {
+    // Revert to saved theme
+    const savedId = currentThemeId;
+    const savedTheme = themes.find(t => t.id === savedId);
+    if (savedTheme) applyTheme(savedTheme);
+    setPreviewTheme(null);
+    setShowSettings(true);
   };
 
   const deleteProject = (id: string) => {
@@ -436,29 +502,26 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
     }
   };
 
-
-
   const addWatermark = (canvas: HTMLCanvasElement, userName: string) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return canvas;
     
-    const size = Math.max(14, Math.floor(canvas.height * 0.035));
-    const padding = size * 0.8;
-    const text = `ðŸ‰ DragonArt â€¢ ${userName}`;
+    const size = Math.max(9, Math.floor(canvas.height * 0.018));
+    const padding = size * 0.5;
+    const text = `DragonArt \u00b7 ${userName}`;
     
     ctx.save();
-    ctx.font = `bold ${size}px "Press Start 2P", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+    ctx.font = `bold ${size}px Inter, -apple-system, sans-serif`;
     const metrics = ctx.measureText(text);
     const rectWidth = metrics.width + padding * 2;
     const rectHeight = size + padding;
-    const x = canvas.width - rectWidth - padding;
-    const y = canvas.height - rectHeight - padding;
+    const margin = size * 0.4;
+    const x = canvas.width - rectWidth - margin;
+    const y = canvas.height - rectHeight - margin;
 
-    // Draw glassmorphism-style pill background
-    ctx.globalAlpha = 0.4;
+    const r = Math.max(4, size * 0.4);
+    ctx.globalAlpha = 0.3;
     ctx.fillStyle = '#000000';
-    // Rounded rect
-    const r = 12;
     ctx.beginPath();
     ctx.moveTo(x + r, y);
     ctx.lineTo(x + rectWidth - r, y);
@@ -472,16 +535,12 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
     ctx.closePath();
     ctx.fill();
 
-    // Subtle white border
-    ctx.globalAlpha = 0.1;
+    ctx.globalAlpha = 0.06;
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    // Draw text with shadow
-    ctx.globalAlpha = 0.9;
-    ctx.shadowColor = 'rgba(0,0,0,0.5)';
-    ctx.shadowBlur = 4;
+    ctx.globalAlpha = 0.55;
     ctx.fillStyle = '#ffffff';
     ctx.textBaseline = 'middle';
     ctx.fillText(text, x + padding, y + rectHeight / 2);
@@ -551,6 +610,10 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
   const handleStart = () => {
     sound.init();
     sound.playAction();
+    if (!isPro && savedProjects.length >= 10) {
+      setShowProModal(true);
+      return;
+    }
     const newConfig = { id: generateId(), name, width: isCustom ? customWidth : size, height: isCustom ? customHeight : size };
     const updatedProjects = [...savedProjects, newConfig];
     setSavedProjects(updatedProjects);
@@ -571,9 +634,21 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
       console.log('Auth State Change:', event, s ? 'Session found' : 'No session');
       setSession(s);
       if (s?.user?.user_metadata) {
-        setProfileName(s.user.user_metadata.display_name || 'Artista Pixel');
-        setExperienceLevel(s.user.user_metadata.experience_level || 'iniciante');
-        setSelectedBadge(s.user.user_metadata.badge || 'leaf');
+        if (s.user.user_metadata.display_name) setProfileName(s.user.user_metadata.display_name);
+        if (s.user.user_metadata.experience_level) setExperienceLevel(s.user.user_metadata.experience_level);
+        if (s.user.user_metadata.badge) setSelectedBadge(s.user.user_metadata.badge);
+        
+        const metaAvatar = s.user.user_metadata.avatar_url;
+        if (metaAvatar) setProfileImage(metaAvatar);
+      }
+      
+      // Auto-trigger onboarding if metadata is incomplete or session is missing
+      if (!s) {
+        setOnboardingStep('welcome');
+      } else if (!s.user.user_metadata?.display_name || !s.user.user_metadata?.avatar_url) {
+        setOnboardingStep('avatar');
+      } else {
+        setOnboardingStep(null);
       }
     });
     return () => subscription.unsubscribe();
@@ -584,11 +659,47 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
       if (session?.user) {
         const { data, error } = await supabase
           .from('profiles')
-          .select('is_pro')
+          .select('is_pro, avatar_url, display_name, badge')
           .eq('id', session.user.id)
-          .single();
+          .maybeSingle();
+
         if (!error && data) {
           setIsPro(!!data.is_pro);
+          
+          const metaName = session.user.user_metadata?.display_name;
+          const metaAvatar = session.user.user_metadata?.avatar_url;
+          const metaBadge = session.user.user_metadata?.badge;
+
+          // Source of Truth: Metadata (User's last action) > Database > Current State
+          const finalName = metaName || data.display_name || profileName;
+          const finalAvatar = metaAvatar || data.avatar_url || profileImage;
+          const finalBadge = metaBadge || data.badge || selectedBadge;
+
+          if (finalName) setProfileName(finalName);
+          if (finalAvatar) setProfileImage(finalAvatar);
+          if (finalBadge) setSelectedBadge(finalBadge);
+
+          // If DB is missing anything that we have in Meta/State, update it once
+          if (!data.display_name || !data.badge || (!data.avatar_url && finalAvatar)) {
+            await supabase.from('profiles').upsert({
+              id: session.user.id,
+              display_name: finalName,
+              avatar_url: finalAvatar,
+              badge: finalBadge,
+              is_pro: !!data.is_pro,
+              updated_at: new Date()
+            });
+          }
+        } else if (!data) {
+          // Profile doesn't exist yet, create it
+          await supabase.from('profiles').upsert({
+            id: session.user.id,
+            display_name: profileName,
+            avatar_url: profileImage,
+            badge: selectedBadge,
+            is_pro: false,
+            updated_at: new Date()
+          });
         }
       } else {
         setIsPro(false);
@@ -597,18 +708,77 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
     fetchProStatus();
   }, [session]);
 
+  useEffect(() => {
+    if (!session?.user) return;
+
+    const fetchMyStats = async () => {
+      const { count: followers } = await supabase.from('followers').select('*', { count: 'exact', head: true }).eq('following_id', session.user.id);
+      const { count: following } = await supabase.from('followers').select('*', { count: 'exact', head: true }).eq('follower_id', session.user.id);
+      
+      const { data: posts } = await supabase.from('posts').select('likes').eq('user_id', session.user.id);
+      const totalLikes = posts?.reduce((acc, p) => acc + (p.likes || 0), 0) || 0;
+      
+      setMyFollowersCount(followers || 0);
+      setMyFollowingCount(following || 0);
+      setMyTotalLikes(totalLikes);
+    };
+
+    fetchMyStats();
+
+    // Notificacao de seguidor em tempo real
+    const channel = supabase
+      .channel('followers_channel')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'followers', filter: `following_id=eq.${session.user.id}` }, payload => {
+        Toast.show({ text: 'ðŸŽ‰ Novo seguidor! AlguÃ©m comeÃ§ou a acompanhar suas artes.' }).catch(() => {});
+        setMyFollowersCount(prev => prev + 1);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session]);
+
+  // Realtime Profile Updates for Community
+  useEffect(() => {
+    if (!session) return;
+
+    const profileChannel = supabase
+      .channel('public:profiles_updates')
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'profiles' 
+      }, payload => {
+        const updatedProfile = payload.new;
+        // Update community posts in real-time when any user updates their profile
+        setCommunityPosts(currentPosts => 
+          currentPosts.map(post => 
+            post.user_id === updatedProfile.id 
+              ? { ...post, profiles: { ...post.profiles, ...updatedProfile } } 
+              : post
+          )
+        );
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(profileChannel);
+    };
+  }, [session]);
+
   const fetchCommunityPosts = async () => {
     setLoadingCommunity(true);
     try {
       const { data, error } = await supabase
         .from('posts')
         .select(`
-          id, title, image_url, likes, created_at,
-          profiles (display_name, experience_level, is_pro),
+          id, title, description, is_private, image_url, likes, created_at, user_id,
+          profiles (id, display_name, experience_level, is_pro, badge, avatar_url),
           comments (id, content, profiles (display_name))
         `)
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(30);
       
       if (!error && data) setCommunityPosts(data);
     } catch (err) {
@@ -618,32 +788,147 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
     }
   };
 
+  const handleTogglePostPrivacy = async (postId: string, currentIsPrivate: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('posts')
+        .update({ is_private: !currentIsPrivate })
+        .eq('id', postId);
+      
+      if (error) throw error;
+      
+      // Update local state optimistically or re-fetch
+      setCommunityPosts(prev => prev.map(p => 
+        p.id === postId ? { ...p, is_private: !currentIsPrivate } : p
+      ));
+      
+      sound.playAction();
+    } catch (err) {
+      console.error('Erro ao mudar privacidade:', err);
+      alert('Erro ao alterar a privacidade do post.');
+    }
+  };
+
+  const handleLikePost = async (postId: string) => {
+    if (!session?.user) {
+      alert('VocÃª precisa estar logado para curtir.');
+      return;
+    }
+    
+    const postIndex = communityPosts.findIndex(p => p.id === postId);
+    if (postIndex === -1) return;
+    const post = communityPosts[postIndex];
+    
+    try {
+      // Tenta inserir a curtida
+      const { error } = await supabase.from('post_likes').insert({
+        post_id: postId,
+        user_id: session.user.id
+      });
+      
+      if (!error) {
+        // Se sucesso (novo like)
+        const updatedPosts = [...communityPosts];
+        updatedPosts[postIndex] = { ...post, likes: (post.likes || 0) + 1 };
+        setCommunityPosts(updatedPosts);
+        await supabase.from('posts').update({ likes: (post.likes || 0) + 1 }).eq('id', postId);
+      } else {
+        // Se deu erro, possivelmente jÃ¡ curtiu, entÃ£o descurte
+        const { error: deleteError } = await supabase.from('post_likes')
+          .delete()
+          .match({ post_id: postId, user_id: session.user.id });
+          
+        if (!deleteError) {
+          const updatedPosts = [...communityPosts];
+          updatedPosts[postIndex] = { ...post, likes: Math.max(0, (post.likes || 1) - 1) };
+          setCommunityPosts(updatedPosts);
+          await supabase.from('posts').update({ likes: Math.max(0, (post.likes || 1) - 1) }).eq('id', postId);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleCommentSubmit = async (postId: string) => {
+    if (!session?.user) {
+      alert('VocÃª precisa estar logado para comentar.');
+      return;
+    }
+    if (!commentText.trim()) return;
+    
+    try {
+      const { data, error } = await supabase.from('comments').insert({
+        post_id: postId,
+        user_id: session.user.id,
+        content: commentText.trim()
+      }).select('id, content, profiles (display_name)').single();
+      
+      if (!error && data) {
+        const updatedPosts = [...communityPosts];
+        const postIndex = updatedPosts.findIndex(p => p.id === postId);
+        if (postIndex !== -1) {
+          updatedPosts[postIndex] = {
+            ...updatedPosts[postIndex],
+            comments: [...(updatedPosts[postIndex].comments || []), data]
+          };
+          setCommunityPosts(updatedPosts);
+        }
+        setCommentText('');
+        setCommentingOn(null);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    if (!session?.user) return;
+    if (!window.confirm('Tem certeza que deseja apagar sua arte da comunidade?')) return;
+    
+    try {
+      const { error } = await supabase.from('posts').delete().eq('id', postId);
+      if (!error) {
+        setCommunityPosts(prev => prev.filter(p => p.id !== postId));
+      } else {
+        console.error('Erro ao apagar:', error);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'community') {
       fetchCommunityPosts();
     }
   }, [activeTab]);
 
-  const handlePostToCommunity = async (project: ProjectConfig) => {
+  const handleOpenPublishModal = (project: ProjectConfig) => {
     if (!session) {
-      setAuthError('VocÃª precisa estar logado para postar na comunidade.');
+      setAuthError('VocÃª precisa estar logado para postar.');
       setActiveTab('profile');
       return;
     }
-
     if (!project.thumbnail) {
       alert('Este projeto nÃ£o tem uma miniatura. Abra e salve o projeto primeiro.');
       return;
     }
+    setPublishProject(project);
+    setPublishTitle(project.name);
+    setPublishDescription('');
+    setPublishIsPrivate(false);
+    setShowPublishModal(true);
+  };
 
-    setIsPosting(true);
+  const submitPublishPost = async () => {
+    if (!session || !publishProject) return;
+    setPublishing(true);
     try {
-      // 1. Converter base64 da thumbnail para Blob
-      const res = await fetch(project.thumbnail);
+      const res = await fetch(publishProject.thumbnail!);
       const blob = await res.blob();
       const fileName = `${session.user.id}/${Date.now()}.png`;
 
-      // 2. Upload para o storage do Supabase (bucket 'arts')
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('arts')
         .upload(fileName, blob, { contentType: 'image/png' });
@@ -652,27 +937,92 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
 
       const { data: { publicUrl } } = supabase.storage.from('arts').getPublicUrl(fileName);
 
-      // 3. Inserir na tabela 'posts'
       const { error: insertError } = await supabase
         .from('posts')
         .insert({
           user_id: session.user.id,
-          title: project.name,
+          title: publishTitle,
+          description: `${publishDescription}\n\n[ID:${profileImage || ''}|${profileName}]`,
+          is_private: publishIsPrivate,
           image_url: publicUrl
         });
 
       if (insertError) throw insertError;
 
-      alert('Arte postada com sucesso na comunidade! ðŸ‰âœ¨');
+      alert('Arte publicada com sucesso! ðŸ ‰âœ¨');
+      setShowPublishModal(false);
+      setPublishProject(null);
       if (activeTab === 'community') fetchCommunityPosts();
-    } catch (err: any) {
-      console.error('Erro ao postar:', err);
-      alert('Erro ao postar: ' + (err.message || 'Erro desconhecido'));
+    } catch (err) {
+      console.error('Erro ao publicar:', err);
+      alert('Erro ao publicar a arte.');
     } finally {
-      setIsPosting(false);
+      setPublishing(false);
     }
   };
 
+  const handleViewUserProfile = async (userId: string, currentPostProfile: any) => {
+    if (!session) return;
+    try {
+      // 1. Fetch user stats
+      const { count: postsCount } = await supabase.from('posts').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('is_private', false);
+      const { count: followersCount } = await supabase.from('followers').select('*', { count: 'exact', head: true }).eq('following_id', userId);
+      
+      // 2. Fetch is following
+      const { data: followData } = await supabase.from('followers').select('*').eq('follower_id', session.user.id).eq('following_id', userId).maybeSingle();
+      
+      // 3. Fetch user public posts
+      const { data: userPosts } = await supabase.from('posts')
+        .select(`id, title, description, image_url, likes, created_at, comments (id, content)`)
+        .eq('user_id', userId)
+        .eq('is_private', false)
+        .order('created_at', { ascending: false });
+
+      // 4. Fetch followers profiles
+      const { data: followersData } = await supabase.from('followers').select('follower_id').eq('following_id', userId);
+      const followerIds = followersData?.map(f => f.follower_id) || [];
+      const { data: followersProfiles } = followerIds.length > 0 
+        ? await supabase.from('profiles').select('id, display_name, avatar_url, badge, is_pro').in('id', followerIds)
+        : { data: [] };
+
+      const isFounder = currentPostProfile?.display_name?.toLowerCase() === 'kelvin' || currentPostProfile?.display_name === profileName;
+
+      setViewingUser({
+        ...currentPostProfile,
+        id: userId,
+        postsCount: postsCount || 0,
+        isFounder: isFounder
+      });
+      setFollowersCount(isFounder ? 1200000 : (followersCount || 0));
+      setIsFollowing(!!followData);
+      setViewingUserPosts(userPosts || []);
+      setViewingUserFollowers(followersProfiles || []);
+      setProfileModalTab('posts');
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleFollowToggle = async () => {
+    if (!session || !viewingUser) return;
+    try {
+      if (isFollowing) {
+        const { error } = await supabase.from('followers').delete().match({ follower_id: session.user.id, following_id: viewingUser.id });
+        if (!error) {
+          setIsFollowing(false);
+          setFollowersCount(prev => Math.max(0, prev - 1));
+        }
+      } else {
+        const { error } = await supabase.from('followers').insert({ follower_id: session.user.id, following_id: viewingUser.id });
+        if (!error) {
+          setIsFollowing(true);
+          setFollowersCount(prev => prev + 1);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
   const experienceLevels = [
     { id: 'iniciante' as const, label: 'Iniciante', icon: 'ðŸŒ±', desc: 'ComeÃ§ando no pixel art' },
     { id: 'intermediario' as const, label: 'IntermediÃ¡rio', icon: 'âš¡', desc: 'JÃ¡ domino o bÃ¡sico' },
@@ -681,16 +1031,16 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
   ];
 
   const badges = [
-    { id: 'leaf', image: '/badges/free_1.png', label: 'Folha', pro: false },
-    { id: 'artist', image: '/badges/free_2.png', label: 'Pedra', pro: false },
-    { id: 'sparkles', image: '/badges/free_3.png', label: 'LÃ¡pis', pro: false },
-    { id: 'heart', image: '/badges/free_4.png', label: 'CoraÃ§Ã£o', pro: false },
-    { id: 'fire', image: '/badges/free_5.png', label: 'Selo Amarelo', pro: false },
-    { id: 'star', image: '/badges/pro_1.png', label: 'Cristal Pro', pro: true, glow: 'rgba(56, 189, 248, 0.8)' },
-    { id: 'crown', image: '/badges/pro_2.png', label: 'Fogo Pro', pro: true, glow: 'rgba(239, 68, 68, 0.8)' },
-    { id: 'diamond', image: '/badges/pro_3.png', label: 'CÃ³smico Pro', pro: true, glow: 'rgba(168, 85, 247, 0.8)' },
-    { id: 'dragon', image: '/badges/pro_4.png', label: 'Game Pro', pro: true, glow: 'rgba(34, 197, 94, 0.8)' },
-    { id: 'verified', image: '/badges/pro_5.png', label: 'Dourado Pro', pro: true, glow: 'rgba(234, 179, 8, 0.8)' },
+    { id: 'leaf', image: '/badges/free_1.png', label: 'Folha Ancestral', pro: false },
+    { id: 'artist', image: '/badges/free_2.png', label: 'Selo de Pedra', pro: false },
+    { id: 'sparkles', image: '/badges/free_3.png', label: 'Pincel de Prata', pro: false },
+    { id: 'heart', image: '/badges/free_4.png', label: 'Coração de Artista', pro: false },
+    { id: 'fire', image: '/badges/free_5.png', label: 'Chama Amarela', pro: false },
+    { id: 'star', image: '/badges/pro_1.png', label: 'Cristal Celestial', pro: true, glow: 'rgba(56, 189, 248, 0.8)' },
+    { id: 'crown', image: '/badges/pro_2.png', label: 'Coroa de Fogo', pro: true, glow: 'rgba(239, 68, 68, 0.8)' },
+    { id: 'diamond', image: '/badges/pro_3.png', label: 'Diamante Cósmico', pro: true, glow: 'rgba(168, 85, 247, 0.8)' },
+    { id: 'dragon', image: '/badges/pro_4.png', label: 'Dragão Guardião', pro: true, glow: 'rgba(34, 197, 94, 0.8)' },
+    { id: 'verified', image: '/badges/pro_5.png', label: 'Elite Dourada', pro: true, glow: 'rgba(234, 179, 8, 0.8)' },
   ];
 
   const handleSignUp = async () => {
@@ -745,30 +1095,62 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    setSession(null); setProfileImage(null); setProfileName('Artista Pixel');
+    setSession(null); 
+    setProfileImage(null); 
+    setProfileName('Artista Pixel');
+    setExperienceLevel('iniciante');
+    setSelectedBadge('leaf');
     sound.playClick();
   };
 
-  const handleProfileImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setProfileImage(reader.result as string);
-      reader.readAsDataURL(file);
-    }
-  };
 
   const handleSaveProfile = async () => {
     sound.playAction();
-    const { error } = await supabase.auth.updateUser({ 
+    // Do not force a default avatar, leave it as null to trigger transparent/black fallback
+    const avatarUrl = profileImage;
+    
+    // 1. Update Auth Metadata
+    const { error: authError } = await supabase.auth.updateUser({ 
       data: { 
         display_name: profileName, 
         experience_level: experienceLevel,
-        badge: selectedBadge
+        badge: selectedBadge,
+        avatar_url: avatarUrl
       } 
     });
-    if (error) setAuthError(error.message);
-    else setAuthSuccess('Perfil salvo!');
+
+    // 2. Update Public Profile Table (Critical for Community)
+    if (session?.user?.id) {
+      const { error: profileError } = await supabase.from('profiles').upsert({
+        id: session.user.id,
+        display_name: profileName,
+        experience_level: experienceLevel,
+        badge: selectedBadge,
+        avatar_url: avatarUrl,
+        is_pro: isPro,
+        updated_at: new Date()
+      });
+      
+      if (profileError) {
+        console.error('Error updating public profile:', profileError);
+        setAuthError('Erro ao atualizar perfil público na comunidade.');
+      }
+    }
+
+    if (authError) setAuthError(authError.message);
+    else {
+      setAuthSuccess('Perfil e Avatar salvos! ✨');
+      // Optimistic update for current user's posts in the local state
+      if (session?.user?.id) {
+        setCommunityPosts(currentPosts => 
+          currentPosts.map(post => 
+            post.user_id === session.user.id 
+              ? { ...post, profiles: { ...post.profiles, display_name: profileName, avatar_url: avatarUrl, badge: selectedBadge, experience_level: experienceLevel } } 
+              : post
+          )
+        );
+      }
+    }
     setTimeout(() => setAuthSuccess(null), 3000);
   };
 
@@ -783,6 +1165,192 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg-app)] font-sans text-[var(--text-primary)] relative transition-colors duration-300 pb-24 overflow-x-hidden">
+
+      {/* ========== ONBOARDING / ENTRY GATE ========== */}
+      <AnimatePresence>
+        {onboardingStep && !session && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[5000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-2xl"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="w-full max-w-md bg-[#0a0a0a] rounded-[48px] border border-white/10 shadow-3xl overflow-hidden relative"
+            >
+              <div className="p-8 flex flex-col items-center text-center">
+                {/* Logo & Welcome */}
+                {onboardingStep === 'welcome' && (
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center gap-6">
+                    <img src="/logo.png" alt="Logo" className="w-24 h-24 image-pixelated drop-shadow-[0_0_20px_rgba(255,255,255,0.2)]" />
+                    <div>
+                      <h2 className="text-3xl font-black text-white tracking-tighter mb-2">BEM-VINDO AO DRAGON ART</h2>
+                      <p className="text-xs text-gray-500 font-bold uppercase tracking-widest leading-relaxed">Sua jornada épica no pixel art começa aqui.</p>
+                    </div>
+                    <div className="w-full flex flex-col gap-3 mt-4">
+                      <button onClick={() => { setAuthMode('register'); setOnboardingStep('auth'); sound.playAction(); }}
+                        className="w-full py-5 bg-[var(--accent-color)] text-white font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-[var(--accent-color)]/20 active:scale-95 transition-all">
+                        CRIAR CONTA GRÁTIS
+                      </button>
+                      <button onClick={() => { setAuthMode('login'); setOnboardingStep('auth'); sound.playClick(); }}
+                        className="w-full py-5 bg-white/5 text-white font-black uppercase tracking-widest rounded-2xl border border-white/10 hover:bg-white/10 active:scale-95 transition-all">
+                        JÁ TENHO CONTA
+                      </button>
+                      <button onClick={() => { setOnboardingStep(null); sound.playClick(); }}
+                        className="w-full py-3 text-gray-500 hover:text-white font-bold uppercase tracking-widest text-[10px] transition-all">
+                        ENTRAR SEM LOGAR (CONTA GRÁTIS)
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Login / Register Forms */}
+                {onboardingStep === 'auth' && (
+                  <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="w-full flex flex-col items-center">
+                    <button onClick={() => setOnboardingStep('welcome')} className="absolute top-8 left-8 p-2 text-gray-500 hover:text-white transition-colors">
+                      <ArrowLeft size={24} />
+                    </button>
+                    <h3 className="text-xl font-black text-white mb-8 uppercase tracking-widest">
+                      {authMode === 'login' ? 'Acessar Conta' : 'Nova Jornada'}
+                    </h3>
+                    
+                    <div className="w-full space-y-4">
+                      {authMode === 'register' && (
+                        <div className="relative group">
+                          <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-[var(--accent-color)] transition-colors" size={20} />
+                          <input type="text" placeholder="Nome de Exibição" value={registerName} onChange={e => setRegisterName(e.target.value)}
+                            className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white outline-none focus:border-[var(--accent-color)]/50 focus:bg-white/[0.08] transition-all font-bold" />
+                        </div>
+                      )}
+                      <div className="relative group">
+                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-[var(--accent-color)] transition-colors" size={20} />
+                        <input type="email" placeholder="Seu E-mail" value={authEmail} onChange={e => setAuthEmail(e.target.value)}
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white outline-none focus:border-[var(--accent-color)]/50 focus:bg-white/[0.08] transition-all font-bold" />
+                      </div>
+                      <div className="relative group">
+                        <Lock size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-[var(--accent-color)] transition-colors" />
+                        <input type="password" placeholder="Sua Senha" value={authPassword} onChange={e => setAuthPassword(e.target.value)}
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white outline-none focus:border-[var(--accent-color)]/50 focus:bg-white/[0.08] transition-all font-bold" />
+                      </div>
+                    </div>
+
+                    <button 
+                      onClick={authMode === 'login' ? handleSignIn : handleSignUp}
+                      disabled={authLoading}
+                      className="w-full mt-8 py-5 bg-[var(--accent-color)] text-white font-black uppercase tracking-widest rounded-2xl shadow-lg active:scale-95 transition-all disabled:opacity-50"
+                    >
+                      {authLoading ? 'PROCESSANDO...' : authMode === 'login' ? 'ENTRAR' : 'CONTINUAR'}
+                    </button>
+                    
+                    {authError && <p className="mt-4 text-red-400 text-xs font-bold text-center">{authError}</p>}
+                  </motion.div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* Step Avatar & Name (Post-Login/Register) */}
+        {onboardingStep && session && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[6000] flex items-center justify-center p-4 bg-black/95 backdrop-blur-3xl">
+            <div className="w-full max-w-lg">
+              {onboardingStep === 'avatar' && (
+                <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex flex-col items-center">
+                  <div className="text-center mb-8">
+                    <h2 className="text-3xl font-black text-white mb-2 uppercase tracking-tighter">Escolha sua Face</h2>
+                    <p className="text-xs text-[var(--accent-color)] font-bold uppercase tracking-widest">Sua foto será vista por toda a comunidade</p>
+                  </div>
+                  
+                  <div className="w-full max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
+                    {/* Standard Avatars */}
+                    <div className="mb-8">
+                      <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <User size={14} /> Avatares Padrão
+                      </h3>
+                      <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                        {avatars.map((url, i) => (
+                          <motion.button key={i} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => { setProfileImage(url); sound.playClick(); }}
+                            className={`relative aspect-square rounded-2xl overflow-hidden border-2 transition-all ${profileImage === url ? 'border-[var(--accent-color)] ring-4 ring-[var(--accent-color)]/20' : 'border-white/5 opacity-60 hover:opacity-100'}`}>
+                            <img src={url} className="w-full h-full object-cover" />
+                            {profileImage === url && <div className="absolute inset-0 bg-[var(--accent-color)]/20 flex items-center justify-center"><Check className="text-white bg-[var(--accent-color)] rounded-full p-1" size={16} /></div>}
+                          </motion.button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* PRO Avatars */}
+                    <div className="mb-8">
+                      <h3 className="text-xs font-black text-yellow-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <Star size={14} className="fill-yellow-500" /> Avatares Animados PRO
+                      </h3>
+                      <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                        {proAvatars.map((url, i) => (
+                          <motion.button 
+                            key={i} 
+                            whileHover={{ scale: isPro ? 1.05 : 1 }} 
+                            whileTap={{ scale: isPro ? 0.95 : 1 }} 
+                            onClick={() => { 
+                              if (isPro) {
+                                setProfileImage(url); 
+                                sound.playClick(); 
+                              } else {
+                                alert('Este avatar animado é exclusivo para membros PRO! 🌟');
+                              }
+                            }}
+                            className={`relative aspect-square rounded-2xl overflow-hidden border-2 transition-all ${
+                              profileImage === url ? 'border-yellow-500 ring-4 ring-yellow-500/20' : 'border-white/5'
+                            } ${!isPro ? 'grayscale opacity-40' : 'hover:opacity-100'}`}
+                          >
+                            <img src={url} className="w-full h-full object-cover" />
+                            {!isPro && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                                <Lock size={16} className="text-white" />
+                              </div>
+                            )}
+                            {profileImage === url && <div className="absolute inset-0 bg-yellow-500/20 flex items-center justify-center"><Check className="text-white bg-yellow-500 rounded-full p-1" size={16} /></div>}
+                          </motion.button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <button onClick={() => setOnboardingStep('name')} disabled={!profileImage}
+                    className="w-full mt-6 py-5 bg-[var(--accent-color)] text-white font-black uppercase tracking-widest rounded-2xl shadow-xl active:scale-95 transition-all disabled:opacity-30">
+                    PRÓXIMO PASSO
+                  </button>
+                </motion.div>
+              )}
+
+              {onboardingStep === 'name' && (
+                <motion.div initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="flex flex-col items-center">
+                  <div className="text-center mb-8">
+                    <div className="w-24 h-24 rounded-[32px] border-4 border-[var(--accent-color)] mx-auto mb-6 overflow-hidden shadow-2xl">
+                      <img src={profileImage || ''} className="w-full h-full object-cover" />
+                    </div>
+                    <h2 className="text-3xl font-black text-white mb-2 uppercase tracking-tighter">Como quer ser chamado?</h2>
+                    <p className="text-xs text-[var(--accent-color)] font-bold uppercase tracking-widest">Este será seu nome artístico no Dragon Art</p>
+                  </div>
+                  <input type="text" placeholder="Ex: Mestre Pixel" value={profileName} onChange={e => setProfileName(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-6 px-8 text-white text-center text-xl outline-none focus:border-[var(--accent-color)]/50 focus:bg-white/[0.08] transition-all font-black mb-8" />
+                  
+                  <button onClick={async () => {
+                    await handleSaveProfile();
+                    setActiveTab('profile');
+                    setOnboardingStep(null);
+                    sound.playAction();
+                  }} disabled={!profileName || profileName.length < 3}
+                    className="w-full py-5 bg-gradient-to-r from-[var(--accent-color)] to-green-600 text-white font-black uppercase tracking-widest rounded-2xl shadow-xl active:scale-95 transition-all disabled:opacity-30">
+                    FINALIZAR IDENTIDADE
+                  </button>
+                </motion.div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ConteÃºdo com Abas */}
       <div className="flex-1 flex flex-col">
@@ -855,10 +1423,13 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                         <button key={s} onClick={() => { setSize(s); setIsCustom(false); }} className={`py-3 rounded-xl font-bold transition-all ${!isCustom && size === s ? 'bg-[var(--accent-color)] text-white' : 'bg-white/5 text-[var(--text-muted)]'}`}>{s}x{s}</button>
                       ))}
                       <button
-                        onClick={() => setIsCustom(true)}
-                        className={`col-span-2 py-3 rounded-xl font-bold transition-all ${isCustom ? 'bg-[var(--accent-color)] text-white' : 'bg-white/5 text-[var(--text-muted)] hover:text-white'}`}
+                        onClick={() => {
+                          if (!isPro) { setShowProModal(true); return; }
+                          setIsCustom(true);
+                        }}
+                        className={`col-span-2 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${isCustom ? 'bg-[var(--accent-color)] text-white' : isPro ? 'bg-white/5 text-[var(--text-muted)] hover:text-white' : 'bg-white/5 text-yellow-400/70 hover:bg-yellow-400/10'}`}
                       >
-                        Tamanho Personalizado
+                        {!isPro && <Lock size={14} />} Tamanho Personalizado {!isPro && <span className="text-[9px] font-black bg-yellow-400/20 px-2 py-0.5 rounded-full">PRO</span>}
                       </button>
                     </div>
 
@@ -1114,11 +1685,10 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                                   <button onClick={(e) => { e.stopPropagation(); deleteProject(p.id); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm text-red-400 hover:bg-red-500 hover:text-white flex items-center gap-2 transition-colors"><Trash2 size={14} /> Excluir</button>
                                   <div className="h-px bg-white/10 mx-2" />
                                   <button 
-                                    onClick={(e) => { e.stopPropagation(); handlePostToCommunity(p); setOpenMenuId(null); }} 
-                                    disabled={isPosting}
-                                    className="w-full px-4 py-2 text-sm text-green-400 hover:bg-green-500 hover:text-white flex items-center gap-2 transition-colors disabled:opacity-50"
+                                    onClick={(e) => { e.stopPropagation(); handleOpenPublishModal(p); setOpenMenuId(null); }} 
+                                    className="w-full px-4 py-2 text-sm text-[var(--accent-color)] hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors font-bold"
                                   >
-                                    <ShareIcon size={14} /> {isPosting ? 'Postando...' : 'Postar na Comunidade'}
+                                    <ShareIcon size={14} /> Publicar na Comunidade
                                   </button>
                                 </motion.div>
                               </>
@@ -1141,6 +1711,19 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
               exit={{ opacity: 0, y: -20 }}
               className="flex-1 max-w-4xl mx-auto w-full p-4 sm:p-6 flex flex-col items-center justify-start overflow-y-auto gap-6"
             >
+              {/* Quick Actions Header */}
+              <div className="w-full flex justify-between items-center bg-[var(--bg-panel)] p-4 rounded-[24px] border border-white/5 shadow-lg">
+                <div className="flex gap-2">
+                  <button onClick={handleSaveProfile}
+                    className="bg-[var(--accent-color)] hover:brightness-110 px-6 py-2.5 rounded-xl text-white font-black text-xs shadow-lg flex items-center gap-2 active:scale-95 transition-all">
+                    <Check size={16} /> SALVAR PERFIL
+                  </button>
+                </div>
+                <button onClick={handleSignOut}
+                  className="px-4 py-2.5 bg-white/5 text-[var(--text-muted)] hover:bg-red-500/20 hover:text-red-400 rounded-xl font-black text-xs flex items-center gap-2 active:scale-95 transition-all border border-white/5">
+                  <LogOut size={16} /> SAIR
+                </button>
+              </div>
               {/* Auth Messages */}
               <AnimatePresence>
                 {authError && (
@@ -1239,49 +1822,49 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                     
                     <div className="relative p-6 flex flex-col sm:flex-row items-center gap-6">
                       {/* Avatar with animated badge ring */}
-                      <div className="relative group cursor-pointer shrink-0" onClick={() => document.getElementById('profile-upload')?.click()}>
+                      <div className="relative group cursor-pointer shrink-0" onClick={() => setShowAvatarPicker(true)}>
                         {/* Animated glow ring */}
                         {badges.find(b => b.id === selectedBadge)?.glow && (
                           <motion.div
-                            animate={{ scale: [1, 1.08, 1], opacity: [0.4, 0.7, 0.4] }}
-                            transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
-                            className="absolute -inset-2 rounded-[40px] pointer-events-none z-0"
+                            animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.6, 0.3] }}
+                            transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+                            className="absolute -inset-3 rounded-[44px] pointer-events-none z-0"
                             style={{ background: `radial-gradient(circle, ${badges.find(b => b.id === selectedBadge)?.glow} 0%, transparent 70%)` }}
                           />
                         )}
-                        <div className="relative w-32 h-32 bg-gradient-to-br from-[var(--accent-color)] to-[var(--bg-element)] rounded-[32px] flex items-center justify-center shadow-2xl border-4 border-white/10 p-1 z-10">
-                          <div className="w-full h-full bg-[var(--bg-panel)] rounded-[24px] overflow-hidden flex items-center justify-center">
-                            {profileImage ? (
-                              <img src={profileImage} alt="Avatar" className="w-full h-full object-cover" />
-                            ) : (
-                              <span className="text-5xl">{experienceLevels.find(l => l.id === experienceLevel)?.icon || 'ðŸŒ±'}</span>
-                            )}
+                        <div className="relative w-36 h-36 bg-gradient-to-br from-[var(--accent-color)] to-[var(--bg-element)] rounded-[40px] flex items-center justify-center shadow-2xl border-4 border-white/10 p-1.5 z-10 overflow-hidden">
+                          <div className="w-full h-full bg-[var(--bg-panel)] rounded-[32px] overflow-hidden flex items-center justify-center">
+                            <img 
+                              src={getAvatarFallback(profileImage, profileName || session?.user?.id || 'user')} 
+                              alt="Avatar" 
+                              className="w-full h-full object-cover transition-transform group-hover:scale-110" 
+                              onError={(e) => { (e.target as HTMLImageElement).src = getAvatarFallback(null, profileName || 'user'); }}
+                            />
                           </div>
                         </div>
-                        <input id="profile-upload" type="file" accept="image/*" className="hidden" onChange={handleProfileImageUpload} />
                         
                         {/* Badge overlay on avatar corner */}
                         <motion.div
-                          animate={badges.find(b => b.id === selectedBadge)?.glow ? { scale: [1, 1.15, 1] } : {}}
-                          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                          className="absolute -bottom-1 -right-1 w-14 h-14 bg-black/90 backdrop-blur-md rounded-full flex items-center justify-center border-2 border-white/20 z-20 shadow-xl"
-                          style={{ boxShadow: badges.find(b => b.id === selectedBadge)?.glow ? `0 0 20px ${badges.find(b => b.id === selectedBadge)?.glow}` : '0 4px 12px rgba(0,0,0,0.4)' }}
+                          animate={{ 
+                            scale: badges.find(b => b.id === selectedBadge)?.glow ? [1, 1.2, 1] : [1, 1.1, 1],
+                            rotate: [0, 8, -8, 0]
+                          }}
+                          transition={{ 
+                            duration: 4, 
+                            repeat: Infinity, 
+                            ease: 'easeInOut' 
+                          }}
+                          className="absolute -bottom-3 -right-3 w-16 h-16 flex items-center justify-center z-20"
                         >
-                          <img src={badges.find(b => b.id === selectedBadge)?.image || '/badges/free_1.png'} className="w-10 h-10 object-contain" alt="Selo"
-                            style={{ filter: badges.find(b => b.id === selectedBadge)?.glow ? `drop-shadow(0 0 6px ${badges.find(b => b.id === selectedBadge)?.glow})` : 'none' }} />
+                          <img src={badges.find(b => b.id === selectedBadge)?.image || '/badges/free_1.png'} className="w-14 h-14 object-contain" alt="Selo"
+                            style={badges.find(b => b.id === selectedBadge)?.glow ? { filter: `drop-shadow(0 0 12px ${badges.find(b => b.id === selectedBadge)?.glow})` } : { filter: 'drop-shadow(0 6px 12px rgba(0,0,0,0.6))' }} />
                         </motion.div>
                         
                         {/* Edit overlay */}
-                        <div className="absolute inset-0 bg-black/50 rounded-[32px] opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity z-10">
-                          <Pencil size={28} className="text-white" />
+                        <div className="absolute inset-0 bg-black/40 rounded-[40px] opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-all z-30 backdrop-blur-[2px]">
+                          <RefreshCw size={32} className="text-white mb-2" />
+                          <span className="text-[10px] font-black text-white uppercase tracking-widest">Alterar Avatar</span>
                         </div>
-                        
-                        {/* PRO crown */}
-                        {isPro && (
-                          <div className="absolute -top-2 -left-2 w-8 h-8 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center z-20 shadow-lg border-2 border-yellow-300">
-                            <span className="text-sm">ðŸ‘‘</span>
-                          </div>
-                        )}
                       </div>
 
                       {/* Info */}
@@ -1289,36 +1872,56 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                         <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)}
                           className="bg-transparent border-none text-center sm:text-left text-2xl font-black text-white outline-none focus:bg-white/5 rounded-xl px-3 py-1 transition-colors w-full" />
                         
-                        <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-start">
-                          <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1"
-                            style={{ background: 'var(--accent-color)', color: 'white' }}>
-                            <Award size={12} /> {experienceLevels.find(l => l.id === experienceLevel)?.label || 'Iniciante'}
-                          </span>
-                          {isPro && (
-                            <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-gradient-to-r from-yellow-400 to-orange-500 text-black flex items-center gap-1">
-                              <Star size={10} className="fill-black" /> PRO
+                          <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-start">
+                            <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 border border-[var(--accent-color)] text-[var(--accent-color)] bg-[var(--accent-color)]/10 backdrop-blur-sm">
+                              <Award size={12} /> {experienceLevels.find(l => l.id === experienceLevel)?.label || 'Iniciante'}
                             </span>
-                          )}
-                        </div>
+                            {isPro && (
+                              <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-yellow-400 text-yellow-400 bg-yellow-400/10 backdrop-blur-sm flex items-center gap-1">
+                                <Star size={10} className="fill-yellow-400" /> PRO
+                              </span>
+                            )}
+                            {(profileName.toLowerCase() === 'kelvin' || session?.user?.email === 'kelvinlexjesusda@gmail.com') && (
+                              <span className="px-3 py-1 bg-gradient-to-r from-yellow-500 to-amber-600 text-black text-[9px] font-black rounded-md shadow-[0_0_15px_rgba(245,158,11,0.5)] animate-pulse px-3 py-1 flex items-center gap-1">
+                                <Shield size={10} /> FUNDADOR
+                              </span>
+                            )}
+                          </div>
                         
                         <p className="text-xs text-[var(--text-muted)] font-bold flex items-center gap-1 mt-1">
                           <Mail size={12} /> {session.user.email}
                         </p>
                         
                         {/* Stats */}
-                        <div className="flex gap-4 mt-2">
-                          <div className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-xl">
+                        <div className="flex gap-3 mt-2 flex-wrap">
+                          <div className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-xl border border-white/5">
                             <FileImage className="text-[var(--accent-color)]" size={16} />
                             <div>
-                              <span className="text-sm font-black">{savedProjects.length}</span>
-                              <span className="text-[9px] font-bold text-[var(--text-muted)] ml-1">Artes</span>
+                              <span className="text-sm font-black text-white">{savedProjects.length}</span>
+                              <span className="text-[9px] font-bold text-[var(--text-muted)] ml-1 uppercase">Artes</span>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-xl">
-                            <Star className="text-yellow-400" size={16} />
+                          <div className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-xl border border-white/5">
+                            <Heart className="text-red-400" size={16} />
                             <div>
-                              <span className="text-sm font-black">0</span>
-                              <span className="text-[9px] font-bold text-[var(--text-muted)] ml-1">Curtidas</span>
+                              <span className="text-sm font-black text-white">{myTotalLikes}</span>
+                              <span className="text-[9px] font-bold text-[var(--text-muted)] ml-1 uppercase">Curtidas</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-xl border border-white/5">
+                            <Users className="text-blue-400" size={16} />
+                            <div>
+                              <span className="text-sm font-black text-white">
+                                {profileName === 'KELVIN' || session?.user?.email === 'kelvinlexjesusda@gmail.com' ? '1.2M' : myFollowersCount}
+                              </span>
+                              <span className="text-[9px] font-bold text-[var(--text-muted)] ml-1 uppercase">Seguidores</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-xl border border-white/5">
+                            <User className="text-gray-400" size={16} />
+                            <div>
+                              <span className="text-sm font-black text-white">{myFollowingCount}</span>
+                              <span className="text-[9px] font-bold text-[var(--text-muted)] ml-1 uppercase">Seguindo</span>
                             </div>
                           </div>
                         </div>
@@ -1326,88 +1929,113 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                     </div>
                   </div>
 
-                  {/* Badge Selection - Dynamic Grid */}
-                  <div className="bg-[var(--bg-panel)] rounded-[28px] p-5 border border-white/5 shadow-xl">
-                    <h3 className="text-base font-black mb-4 flex items-center gap-2">
-                      <div className="p-1.5 bg-[var(--accent-color)]/20 rounded-lg"><Award size={16} className="text-[var(--accent-color)]" /></div>
-                      Meus Selos
+                  {/* Badge Selection - Professional Grid */}
+                  <div className="bg-[var(--bg-panel)] rounded-[32px] p-6 border border-white/5 shadow-2xl overflow-hidden relative">
+                    <div className="absolute top-0 right-0 p-4 opacity-5">
+                      <Award size={80} />
+                    </div>
+
+                    <h3 className="text-lg font-black mb-6 flex items-center gap-3">
+                      <div className="p-2 bg-[var(--accent-color)]/20 rounded-xl"><Award size={20} className="text-[var(--accent-color)]" /></div>
+                      Selos de Conquista
                     </h3>
                     
-                    {/* Free badges */}
-                    <div className="mb-3">
-                      <span className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] mb-2 block">Gratuitos</span>
-                      <div className="grid grid-cols-5 gap-2">
-                        {badges.filter(b => !b.pro).map(badge => (
-                          <motion.button
-                            key={badge.id}
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => { setSelectedBadge(badge.id); sound.playClick(); }}
-                            className={`relative aspect-square rounded-2xl flex items-center justify-center transition-all ${
-                              selectedBadge === badge.id
-                                ? 'bg-[var(--accent-color)]/20 ring-2 ring-[var(--accent-color)] scale-105 shadow-lg'
-                                : 'bg-white/5 hover:bg-white/10 opacity-60 hover:opacity-100'
-                            }`}
-                          >
-                            <img src={badge.image} className="w-10 h-10 object-contain" alt={badge.label} />
-                            {selectedBadge === badge.id && (
-                              <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}
-                                className="absolute -top-1 -right-1 w-5 h-5 bg-[var(--accent-color)] rounded-full flex items-center justify-center">
-                                <Check size={10} className="text-white" />
-                              </motion.div>
-                            )}
-                          </motion.button>
-                        ))}
+                    <div className="space-y-8">
+                      {/* Free badges */}
+                      <div>
+                        <div className="flex items-center justify-between mb-4">
+                          <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.25em]">Coleção Básica</span>
+                          <span className="text-[9px] font-bold text-green-400/60 bg-green-400/10 px-2 py-0.5 rounded-md">DESBLOQUEADO</span>
+                        </div>
+                        <div className="grid grid-cols-5 gap-3">
+                          {badges.filter(b => !b.pro).map(badge => (
+                            <div key={badge.id} className="flex flex-col items-center gap-2">
+                              <motion.button
+                                whileHover={{ scale: 1.1, y: -2 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => { setSelectedBadge(badge.id); sound.playClick(); }}
+                                className={`relative w-full aspect-square rounded-[24px] flex items-center justify-center transition-all ${
+                                  selectedBadge === badge.id
+                                    ? 'bg-gradient-to-br from-[var(--accent-color)]/30 to-[var(--accent-color)]/10 ring-2 ring-[var(--accent-color)] shadow-[0_0_20px_rgba(var(--accent-rgb),0.2)]'
+                                    : 'bg-white/[0.03] hover:bg-white/10'
+                                }`}
+                              >
+                                <img src={badge.image} className="w-10 h-10 object-contain drop-shadow-lg" alt={badge.label} />
+                                {selectedBadge === badge.id && (
+                                  <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}
+                                    className="absolute -top-1 -right-1 w-6 h-6 bg-[var(--accent-color)] rounded-full flex items-center justify-center border-2 border-[var(--bg-panel)] shadow-lg">
+                                    <Check size={12} className="text-white" />
+                                  </motion.div>
+                                )}
+                              </motion.button>
+                              <span className={`text-[8px] font-black uppercase text-center truncate w-full ${selectedBadge === badge.id ? 'text-[var(--accent-color)]' : 'text-[var(--text-muted)] opacity-60'}`}>{badge.label}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                    
-                    {/* Pro badges */}
-                    <div>
-                      <span className="text-[9px] font-black text-yellow-400 uppercase tracking-[0.2em] mb-2 block flex items-center gap-1">
-                        <Star size={10} className="fill-yellow-400" /> Selos PRO
-                      </span>
-                      <div className="grid grid-cols-5 gap-2">
-                        {badges.filter(b => b.pro).map(badge => {
-                          const isLocked = !isPro;
-                          return (
-                            <motion.button
-                              key={badge.id}
-                              whileTap={!isLocked ? { scale: 0.9 } : {}}
-                              onClick={() => {
-                                if (isLocked) { setShowProModal(true); return; }
-                                setSelectedBadge(badge.id); sound.playClick();
-                              }}
-                              className={`relative aspect-square rounded-2xl flex items-center justify-center transition-all ${
-                                selectedBadge === badge.id
-                                  ? 'ring-2 ring-yellow-400 scale-105 shadow-lg shadow-yellow-400/20'
-                                  : isLocked
-                                    ? 'bg-white/[0.02] opacity-30 cursor-not-allowed'
-                                    : 'bg-white/5 hover:bg-white/10 opacity-60 hover:opacity-100'
-                              }`}
-                              style={selectedBadge === badge.id && badge.glow ? {
-                                background: `radial-gradient(circle, ${badge.glow}20 0%, transparent 70%)`
-                              } : {}}
-                            >
-                              {/* Glow effect for selected PRO badge */}
-                              {selectedBadge === badge.id && badge.glow && (
-                                <motion.div
-                                  animate={{ opacity: [0.3, 0.7, 0.3] }}
-                                  transition={{ duration: 2, repeat: Infinity }}
-                                  className="absolute inset-0 rounded-2xl pointer-events-none"
-                                  style={{ boxShadow: `inset 0 0 20px ${badge.glow}40, 0 0 15px ${badge.glow}30` }}
-                                />
-                              )}
-                              <img src={badge.image} className="w-10 h-10 object-contain relative z-10" alt={badge.label}
-                                style={selectedBadge === badge.id && badge.glow ? { filter: `drop-shadow(0 0 8px ${badge.glow})` } : {}} />
-                              {isLocked && <Lock size={10} className="absolute bottom-1 right-1 text-white/40 z-10" />}
-                              {selectedBadge === badge.id && !isLocked && (
-                                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}
-                                  className="absolute -top-1 -right-1 w-5 h-5 bg-yellow-400 rounded-full flex items-center justify-center z-20">
-                                  <Check size={10} className="text-black" />
-                                </motion.div>
-                              )}
-                            </motion.button>
-                          );
-                        })}
+                      
+                      {/* Pro badges */}
+                      <div>
+                        <div className="flex items-center justify-between mb-4">
+                          <span className="text-[10px] font-black text-yellow-400 uppercase tracking-[0.25em] flex items-center gap-1">
+                            <Star size={10} className="fill-yellow-400" /> Coleção Dragon PRO
+                          </span>
+                          {!isPro && <span className="text-[9px] font-bold text-yellow-400/60 bg-yellow-400/10 px-2 py-0.5 rounded-md">BLOQUEADO</span>}
+                        </div>
+                        <div className="grid grid-cols-5 gap-3">
+                          {badges.filter(b => b.pro).map(badge => {
+                            const isLocked = !isPro;
+                            const isSelected = selectedBadge === badge.id;
+                            return (
+                              <div key={badge.id} className="flex flex-col items-center gap-2">
+                                <motion.button
+                                  whileHover={!isLocked ? { scale: 1.1, y: -2 } : {}}
+                                  whileTap={!isLocked ? { scale: 0.9 } : {}}
+                                  onClick={() => {
+                                    if (isLocked) { setShowProModal(true); return; }
+                                    setSelectedBadge(badge.id); sound.playClick();
+                                  }}
+                                  className={`relative w-full aspect-square rounded-[24px] flex items-center justify-center transition-all ${
+                                    isSelected
+                                      ? 'ring-2 ring-yellow-400 shadow-[0_0_25px_rgba(234,179,8,0.3)] bg-yellow-400/10'
+                                      : isLocked
+                                        ? 'bg-black/40 grayscale opacity-40 cursor-not-allowed border border-white/5'
+                                        : 'bg-white/[0.03] hover:bg-white/10'
+                                  }`}
+                                  style={isSelected && badge.glow ? {
+                                    background: `radial-gradient(circle, ${badge.glow}30 0%, transparent 80%)`
+                                  } : {}}
+                                >
+                                  {/* Glow effect for selected PRO badge */}
+                                  {isSelected && badge.glow && (
+                                    <motion.div
+                                      animate={{ opacity: [0.2, 0.5, 0.2] }}
+                                      transition={{ duration: 3, repeat: Infinity }}
+                                      className="absolute inset-0 rounded-[24px] pointer-events-none"
+                                      style={{ boxShadow: `inset 0 0 15px ${badge.glow}40` }}
+                                    />
+                                  )}
+                                  <img src={badge.image} className="w-10 h-10 object-contain relative z-10" alt={badge.label}
+                                    style={isSelected && badge.glow ? { filter: `drop-shadow(0 0 10px ${badge.glow})` } : {}} />
+                                  
+                                  {isLocked && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-[24px] backdrop-blur-[1px]">
+                                      <Lock size={12} className="text-white/60" />
+                                    </div>
+                                  )}
+                                  
+                                  {isSelected && !isLocked && (
+                                    <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}
+                                      className="absolute -top-1 -right-1 w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center border-2 border-[var(--bg-panel)] shadow-lg z-20">
+                                      <Check size={12} className="text-black" />
+                                    </motion.div>
+                                  )}
+                                </motion.button>
+                                <span className={`text-[8px] font-black uppercase text-center truncate w-full ${isSelected ? 'text-yellow-400' : 'text-[var(--text-muted)] opacity-60'}`}>{badge.label}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1501,40 +2129,149 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                 </div>
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                  {communityPosts.map((post) => (
-                    <motion.div 
-                      layout
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      key={post.id} 
-                      className="bg-[var(--bg-panel)] rounded-[32px] border border-white/5 overflow-hidden shadow-lg group"
-                    >
-                      <div className="aspect-square bg-black/20 flex items-center justify-center p-4 relative">
-                        <img 
-                          src={post.image_url} 
-                          alt={post.title} 
-                          className="max-w-full max-h-full object-contain image-pixelated group-hover:scale-110 transition-transform" 
-                        />
-                      </div>
-                      <div className="p-4 border-t border-white/5">
-                        <h4 className="font-bold text-sm truncate">{post.title}</h4>
-                        <div className="flex items-center justify-between mt-2">
-                          <div className="flex items-center gap-1.5 overflow-hidden">
-                            <span className="text-xs text-[var(--text-muted)] truncate max-w-[80px]">
-                              @{post.profiles?.display_name || 'AnÃ´nimo'}
-                            </span>
-                            {post.profiles?.is_pro && <Star size={10} className="text-green-400 fill-green-400" />}
+                    {communityPosts.map((post) => {
+                      const idMatch = post.description?.match(/\[ID:(.*)\|(.*)\]/);
+                      const embeddedAvatar = idMatch ? idMatch[1] : null;
+                      const embeddedName = idMatch ? idMatch[2] : null;
+                      const cleanDescription = post.description?.replace(/\[ID:.*\]/, '').trim();
+                      
+                      return (
+                        <motion.div 
+                          layout
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          key={post.id} 
+                          className="bg-[var(--bg-panel)] rounded-[32px] border border-white/5 overflow-hidden shadow-lg group"
+                        >
+                          <div 
+                            className="aspect-square bg-black/20 flex items-center justify-center p-4 relative cursor-pointer group/image"
+                            onClick={() => setZoomedPost({...post, description: cleanDescription, _embeddedName: embeddedName})}
+                          >
+                            <img 
+                              src={post.image_url} 
+                              alt={post.title} 
+                              className="max-w-full max-h-full object-contain image-pixelated group-hover/image:scale-110 transition-transform" 
+                            />
+                            <div className="absolute inset-0 bg-black/0 group-hover/image:bg-black/10 transition-colors flex items-center justify-center">
+                              <span className="opacity-0 group-hover/image:opacity-100 bg-black/50 text-white text-xs font-bold px-3 py-1.5 rounded-full backdrop-blur-sm transition-opacity flex items-center gap-2">
+                                <Maximize2 size={14} /> Ampliar
+                              </span>
+                            </div>
+                              {session?.user?.id === post.user_id && (
+                                <div className="flex gap-2 absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleTogglePostPrivacy(post.id, !!post.is_private); }}
+                                    className={`p-2 rounded-full backdrop-blur-sm transition-all ${post.is_private ? 'bg-yellow-500 text-black' : 'bg-white/20 text-white hover:bg-white/40'}`}
+                                    title={post.is_private ? "Tornar Público" : "Tornar Privado"}
+                                  >
+                                    {post.is_private ? <EyeOff size={16} /> : <Eye size={16} />}
+                                  </button>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleDeletePost(post.id); }}
+                                    className="p-2 bg-red-500/80 hover:bg-red-500 text-white rounded-full backdrop-blur-sm transition-all"
+                                    title="Apagar Post"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </div>
+                              )}
+
+                        {post.is_private && (
+                          <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur-md rounded-lg border border-yellow-500/30 flex items-center gap-1.5 pointer-events-none">
+                            <Lock size={10} className="text-yellow-500" />
+                            <span className="text-[8px] font-black text-yellow-500 uppercase tracking-tighter">Privado</span>
                           </div>
-                          <div className="flex items-center gap-1 text-[var(--text-muted)]">
-                            <Heart size={14} />
-                            <span className="text-[10px] font-bold">{post.likes || 0}</span>
+                        )}
+                      </div>
+                      
+                      <div className="p-4 border-t border-white/5">
+                        <div className="flex items-center gap-3 mb-3">
+                          <button 
+                            onClick={() => post.profiles?.id && handleViewUserProfile(post.profiles.id, post.profiles)}
+                            className="w-10 h-10 rounded-full overflow-hidden bg-white/5 shrink-0 border-2 border-white/10 hover:border-[var(--accent-color)] transition-colors"
+                          >
+                            <div className="relative w-full h-full">
+                              <img 
+                                src={post.user_id === session?.user?.id 
+                                  ? getAvatarFallback(profileImage, profileName)
+                                  : getAvatarFallback(
+                                      (Array.isArray(post.profiles) ? post.profiles[0]?.avatar_url : post.profiles?.avatar_url) || embeddedAvatar, 
+                                      (Array.isArray(post.profiles) ? post.profiles[0]?.display_name : post.profiles?.display_name) || embeddedName || post.user_id
+                                    )} 
+                                className="w-full h-full object-cover" 
+                                alt="Avatar" 
+                                onError={(e) => { (e.target as HTMLImageElement).src = getAvatarFallback(null, embeddedName || post.user_id); }}
+                              />
+                              {/* Badge overlay on avatar corner */}
+                              {(post.user_id === session?.user?.id ? selectedBadge : (Array.isArray(post.profiles) ? post.profiles[0]?.badge : post.profiles?.badge)) && (
+                                <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-[var(--bg-app)] flex items-center justify-center shadow-lg z-10 border border-white/10">
+                                  <img 
+                                    src={badges.find(b => b.id === (post.user_id === session?.user?.id ? selectedBadge : (Array.isArray(post.profiles) ? post.profiles[0]?.badge : post.profiles?.badge)))?.image || '/badges/free_1.png'} 
+                                    className="w-2.5 h-2.5 object-contain" 
+                                    alt="Selo" 
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-bold text-sm text-white truncate">{post.title}</h4>
+                              {((Array.isArray(post.profiles) ? post.profiles[0]?.display_name : post.profiles?.display_name)?.toLowerCase() === 'kelvin' || (Array.isArray(post.profiles) ? post.profiles[0]?.id : post.profiles?.id) === '41066d58-7c5e-49b5-9009-b1dfd11b72f3') && (
+                                <span className="px-1.5 py-0.5 bg-gradient-to-r from-yellow-500 to-amber-600 text-black text-[8px] font-black rounded-sm shadow-[0_0_10px_rgba(245,158,11,0.3)] animate-pulse">
+                                  FUNDADOR
+                                </span>
+                              )}
+                            </div>
+                            <button 
+                              onClick={() => {
+                                const p = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
+                                if (p?.id) handleViewUserProfile(p.id, p);
+                              }}
+                              className="flex items-center gap-1 overflow-hidden hover:opacity-80 transition-opacity text-left active:scale-95"
+                            >
+                              <span className="text-xs text-[var(--accent-color)] font-bold truncate">
+                                @{(post.user_id === session?.user?.id ? profileName : null) || (Array.isArray(post.profiles) ? post.profiles[0]?.display_name : post.profiles?.display_name) || embeddedName || 'Anônimo'}
+                              </span>
+                              {(post.user_id === session?.user?.id ? isPro : (Array.isArray(post.profiles) ? post.profiles[0]?.is_pro : post.profiles?.is_pro)) && <Star size={10} className="text-yellow-400 fill-yellow-400" />}
+                            </button>
+                          </div>
+                        </div>
+
+                        {post.description && (
+                          <p className="text-xs text-gray-400 mb-3 line-clamp-2 leading-relaxed">{post.description}</p>
+                        )}
+
+                        <div className="flex items-center justify-between mt-2 pt-3 border-t border-white/5">
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-1 text-[var(--text-muted)]">
+                              <button onClick={() => handleLikePost(post.id)} className="hover:text-red-400 transition-colors active:scale-90 p-1">
+                                <Heart size={16} className={post.likes > 0 ? "fill-red-400 text-red-400" : ""} />
+                              </button>
+                              <span className="text-xs font-bold">{post.likes || 0}</span>
+                            </div>
+                            
+                            {session?.user?.id !== post.user_id && (
+                              <button 
+                                onClick={async () => {
+                                  if(!session) return;
+                                  const { error } = await supabase.from('followers').insert({ follower_id: session.user.id, following_id: post.user_id });
+                                  if (!error) alert('VocÃª comeÃ§ou a seguir ' + (post.profiles?.display_name || 'este artista') + '!');
+                                  else alert('VocÃª jÃ¡ segue este artista.');
+                                }}
+                                className="hover:text-blue-400 text-[var(--text-muted)] transition-colors active:scale-90 p-1 flex items-center gap-1"
+                                title="Seguir Artista"
+                              >
+                                <UserPlus size={16} />
+                              </button>
+                            )}
                           </div>
                         </div>
 
                         {/* ComentÃ¡rios na visualizaÃ§Ã£o do App */}
                         {post.comments && post.comments.length > 0 && (
-                          <div className="mt-3 pt-3 border-t border-white/5 flex flex-col gap-2 max-h-[100px] overflow-y-auto custom-scrollbar">
-                            {post.comments.slice(0, 3).map((comment: any) => (
+                          <div className="mt-3 pt-3 border-t border-white/5 flex flex-col gap-2 max-h-[120px] overflow-y-auto custom-scrollbar">
+                            {post.comments.map((comment: any) => (
                               <div key={comment.id} className="bg-black/20 rounded-lg p-2 text-xs">
                                 <span className="font-bold text-[var(--accent-color)] mr-1">
                                   {comment.profiles?.display_name || 'UsuÃ¡rio'}:
@@ -1542,27 +2279,49 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                                 <span className="text-gray-300">{comment.content}</span>
                               </div>
                             ))}
-                              {post.comments.length > 3 && (
-                                <div className="text-[9px] text-gray-500 font-bold text-center mt-1">
-                                  Ver mais {post.comments.length - 3} comentÃ¡rios...
-                                </div>
-                              )}
-                            </div>
-                          )}
-                          
-                          {(!post.comments || post.comments.length === 0) && (
-                            <div className="mt-3 pt-3 border-t border-white/5 text-center">
-                              <span className="text-[9px] text-gray-500 font-bold">
-                                Sem comentÃ¡rios ainda.
-                              </span>
-                            </div>
-                          )}
+                          </div>
+                        )}
                         
+                        {(!post.comments || post.comments.length === 0) && (
+                          <div className="mt-3 pt-3 border-t border-white/5 text-center">
+                            <span className="text-[9px] text-gray-500 font-bold">
+                              Seja o primeiro a comentar.
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Caixa de Novo ComentÃ¡rio */}
+                        <div className="mt-2 pt-2 flex items-center gap-2">
+                          {commentingOn === post.id ? (
+                            <div className="flex-1 flex items-center gap-1 bg-black/40 rounded-full border border-white/10 px-3 py-1">
+                              <input 
+                                type="text"
+                                autoFocus
+                                value={commentText}
+                                onChange={e => setCommentText(e.target.value)}
+                                placeholder="Escreva..."
+                                className="bg-transparent border-none outline-none text-xs text-white w-full h-6"
+                                onKeyDown={e => e.key === 'Enter' && handleCommentSubmit(post.id)}
+                              />
+                              <button onClick={() => handleCommentSubmit(post.id)} className="text-[var(--accent-color)] p-1 hover:bg-white/10 rounded-full">
+                                <Send size={12} />
+                              </button>
+                            </div>
+                          ) : (
+                            <button 
+                              onClick={() => { setCommentingOn(post.id); setCommentText(''); }}
+                              className="w-full text-center text-[10px] font-bold text-gray-400 hover:text-white py-1.5 bg-white/5 hover:bg-white/10 rounded-full transition-colors flex items-center justify-center gap-1"
+                            >
+                              <MessageSquare size={12} /> Adicionar comentário
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </motion.div>
-                  ))}
-                </div>
-              )}
+                  );
+                })}
+              </div>
+            )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -1638,12 +2397,14 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                     <h4 className="font-bold text-xl mb-4 flex items-center gap-2">
                       <Palette className="text-[var(--accent-color)]" /> Cores de Fundo (Temas)
                     </h4>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 max-h-[40vh] overflow-y-auto pr-2">
-                      {themes.map((theme) => (
+                    {/* Free Themes */}
+                    <span className="text-[10px] font-black text-green-400 uppercase tracking-[0.2em] mb-1 block flex items-center gap-1">✦ Gratuitos</span>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-6">
+                      {themes.filter(t => FREE_THEME_IDS.has(t.id)).map((theme) => (
                         <button
                           key={theme.id}
                           onClick={() => changeTheme(theme.id)}
-                          className={`flex flex-col items-center gap-3 p-4 rounded-2xl border-2 transition-all duration-200 ${currentThemeId === theme.id ? 'border-[var(--accent-color)] bg-[var(--accent-color)]/10 scale-105 shadow-md' : 'border-white/5 bg-white/5 hover:border-white/20 hover:-translate-y-1'}`}
+                          className={`relative flex flex-col items-center gap-3 p-4 rounded-2xl border-2 transition-all duration-200 ${currentThemeId === theme.id ? 'border-[var(--accent-color)] bg-[var(--accent-color)]/10 scale-105 shadow-md' : 'border-white/5 bg-white/5 hover:border-white/20 hover:-translate-y-1'}`}
                         >
                           <div className="w-12 h-12 rounded-full overflow-hidden shadow-inner flex relative" style={{ backgroundColor: theme.colors.bgApp }}>
                             <div className="w-1/2 h-full" style={{ backgroundColor: theme.colors.bgSurface }}></div>
@@ -1655,6 +2416,49 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                           {currentThemeId === theme.id && <span className="absolute top-2 right-2 text-[var(--accent-color)] bg-white/10 rounded-full p-0.5"><Check size={14} /></span>}
                         </button>
                       ))}
+                    </div>
+
+                    {/* PRO Themes */}
+                    <span className="text-[10px] font-black text-yellow-400 uppercase tracking-[0.2em] mb-1 block flex items-center gap-1">
+                      <Star size={10} className="fill-yellow-400" /> Temas PRO {!isPro && <Lock size={10} className="ml-1 opacity-60" />}
+                    </span>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 max-h-[35vh] overflow-y-auto pr-2">
+                      {themes.filter(t => !FREE_THEME_IDS.has(t.id)).map((theme) => {
+                        const isActive = currentThemeId === theme.id;
+                        const isLocked = !isPro;
+                        return (
+                          <button
+                            key={theme.id}
+                            onClick={() => changeTheme(theme.id)}
+                            className={`relative flex flex-col items-center gap-3 p-4 rounded-2xl border-2 transition-all duration-200 ${
+                              isActive
+                                ? 'border-yellow-400 bg-yellow-400/10 scale-105 shadow-md shadow-yellow-400/20'
+                                : isLocked
+                                  ? 'border-white/5 bg-white/[0.03] hover:border-yellow-400/30 hover:-translate-y-1 group'
+                                  : 'border-white/5 bg-white/5 hover:border-white/20 hover:-translate-y-1'
+                            }`}
+                          >
+                            <div className="relative">
+                              <div className="w-12 h-12 rounded-full overflow-hidden shadow-inner flex relative" style={{ backgroundColor: theme.colors.bgApp }}>
+                                <div className="w-1/2 h-full" style={{ backgroundColor: theme.colors.bgSurface }}></div>
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <div className="w-6 h-6 rounded-full border-2" style={{ backgroundColor: theme.colors.accentColor, borderColor: theme.colors.bgElement }}></div>
+                                </div>
+                              </div>
+                              {isLocked && (
+                                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-yellow-400/90 rounded-full flex items-center justify-center shadow-sm">
+                                  <Lock size={9} className="text-black" />
+                                </div>
+                              )}
+                            </div>
+                            <span className={`text-xs font-bold text-center ${isLocked ? 'opacity-60' : ''}`}>{theme.name}</span>
+                            {isActive && <span className="absolute top-2 right-2 text-yellow-400 bg-white/10 rounded-full p-0.5"><Check size={14} /></span>}
+                            {isLocked && (
+                              <span className="absolute top-1.5 left-1.5 text-[8px] font-black text-yellow-400 bg-yellow-400/10 px-1.5 py-0.5 rounded-full">PRO</span>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -1704,6 +2508,284 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                 <button onClick={() => setShowTutorials(false)} className="mt-8 w-full p-4 bg-[var(--accent-color)] rounded-2xl font-black text-white transition-all">ENTENDI TUDO</button>
              </div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* ========== PUBLISH MODAL ========== */}
+      <AnimatePresence>
+        {showPublishModal && publishProject && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" onClick={() => setShowPublishModal(false)}>
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-[var(--bg-panel)] w-full max-w-md p-6 rounded-[32px] border border-white/10 shadow-2xl relative"
+              onClick={e => e.stopPropagation()}
+            >
+              <h3 className="text-xl font-black text-white mb-6">Publicar Arte</h3>
+              
+              <div className="flex justify-center mb-6">
+                <div className="w-32 h-32 rounded-2xl overflow-hidden bg-black/20 border border-white/5 flex items-center justify-center shadow-inner">
+                  <img src={publishProject.thumbnail} className="w-full h-full object-contain image-pixelated" alt="Preview" />
+                </div>
+              </div>
+
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">TÃ­tulo</label>
+                  <input 
+                    type="text" 
+                    value={publishTitle} 
+                    onChange={e => setPublishTitle(e.target.value)} 
+                    className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[var(--accent-color)] transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">DescriÃ§Ã£o (Opcional)</label>
+                  <textarea 
+                    value={publishDescription} 
+                    onChange={e => setPublishDescription(e.target.value)} 
+                    rows={3}
+                    className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[var(--accent-color)] transition-colors resize-none"
+                    placeholder="Conte sobre sua criaÃ§Ã£o..."
+                  />
+                </div>
+                
+                <div className="p-3 bg-white/5 rounded-xl border border-white/5 flex items-center justify-between cursor-pointer hover:bg-white/10 transition-colors" onClick={() => setPublishIsPrivate(!publishIsPrivate)}>
+                  <div>
+                    <span className="block text-sm font-bold text-white">{publishIsPrivate ? 'Privado' : 'PÃºblico (Comunidade)'}</span>
+                    <span className="text-[10px] text-gray-400 font-bold">
+                      {publishIsPrivate ? 'Apenas no seu perfil.' : 'VisÃ­vel na comunidade global.'}
+                    </span>
+                  </div>
+                  <div className={`w-10 h-5 rounded-full relative transition-colors ${publishIsPrivate ? 'bg-gray-500' : 'bg-[var(--accent-color)]'}`}>
+                    <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-md transition-all ${publishIsPrivate ? 'right-0.5' : 'left-0.5'}`} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={() => setShowPublishModal(false)} className="flex-1 p-3 rounded-xl font-bold text-white/50 hover:bg-white/5 transition-colors">Cancelar</button>
+                <button 
+                  onClick={submitPublishPost} 
+                  disabled={publishing || !publishTitle.trim()} 
+                  className="flex-1 p-3 bg-[var(--accent-color)] rounded-xl font-black text-white hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 disabled:active:scale-100 flex items-center justify-center gap-2"
+                >
+                  {publishing ? <RefreshCw size={16} className="animate-spin" /> : <ShareIcon size={16} />}
+                  {publishing ? 'Enviando...' : 'Publicar'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ========== USER PROFILE MODAL ========== */}
+      <AnimatePresence>
+        {viewingUser && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md" onClick={() => setViewingUser(null)}>
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 30 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 30 }}
+              className="bg-[var(--bg-app)] w-full max-w-4xl h-[85vh] rounded-[40px] border border-white/10 shadow-2xl relative flex flex-col overflow-hidden"
+              onClick={e => e.stopPropagation()}
+            >
+              <button onClick={() => setViewingUser(null)} className="absolute top-6 right-6 p-2 bg-black/40 hover:bg-white/10 rounded-full z-20 transition-colors backdrop-blur-md text-white"><X size={20} /></button>
+              
+              {/* Cover & Header */}
+              <div className="relative h-48 bg-gradient-to-r from-[#161622] to-black flex-shrink-0">
+                <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(var(--accent-color) 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
+                <div className="absolute -bottom-16 left-8 flex items-end gap-6">
+                  <div className="relative w-32 h-32 rounded-[28px] bg-[var(--bg-panel)] border-[4px] border-[var(--bg-app)] shadow-2xl flex items-center justify-center overflow-hidden">
+                    <img 
+                      src={viewingUser.id === session?.user?.id 
+                        ? getAvatarFallback(profileImage, profileName)
+                        : getAvatarFallback(viewingUser.avatar_url, viewingUser.display_name || viewingUser.id)} 
+                      className="w-full h-full object-cover" 
+                      alt="Avatar" 
+                      onError={(e) => { (e.target as HTMLImageElement).src = getAvatarFallback(null, viewingUser.display_name || viewingUser.id); }}
+                    />
+                    {(viewingUser.id === session?.user?.id ? selectedBadge : viewingUser.badge) && (
+                      <div className="absolute -bottom-1 -right-1 w-10 h-10 rounded-xl bg-[var(--bg-app)] border-2 border-[var(--bg-app)] flex items-center justify-center shadow-lg z-10">
+                        <img 
+                          src={badges.find(b => b.id === (viewingUser.id === session?.user?.id ? selectedBadge : viewingUser.badge))?.image || '/badges/free_1.png'} 
+                          className="w-7 h-7 object-contain" 
+                          alt="Selo" 
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <div className="mb-2">
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-3xl font-black text-white">{viewingUser.id === session?.user?.id ? profileName : (viewingUser.display_name || 'Artista')}</h2>
+                      {(viewingUser.isFounder || (viewingUser.id === session?.user?.id && profileName.toLowerCase() === 'kelvin')) && (
+                        <span className="px-2 py-0.5 bg-gradient-to-r from-yellow-500 to-amber-600 text-black text-[9px] font-black rounded-md shadow-[0_0_10px_rgba(245,158,11,0.4)] animate-pulse">
+                          FUNDADOR
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 border border-[var(--accent-color)] text-[var(--accent-color)] bg-[var(--accent-color)]/10 backdrop-blur-sm">
+                        <Award size={12} /> {experienceLevels.find(l => l.id === (viewingUser.id === session?.user?.id ? experienceLevel : viewingUser.experience_level))?.label || 'Iniciante'}
+                      </span>
+                      {(viewingUser.id === session?.user?.id ? isPro : viewingUser.is_pro) && (
+                        <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-yellow-400 text-yellow-400 bg-yellow-400/10 backdrop-blur-sm flex items-center gap-1">
+                          <Star size={10} className="fill-yellow-400" /> PRO
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Follow Button */}
+                {session?.user?.id !== viewingUser.id && (
+                  <div className="absolute bottom-4 right-8">
+                    <button 
+                      onClick={handleFollowToggle}
+                      className={`px-6 py-2.5 rounded-full font-black text-sm transition-all active:scale-95 shadow-lg flex items-center gap-2 ${
+                        isFollowing ? 'bg-white/10 text-white hover:bg-white/20 border border-white/10' : 'bg-[var(--accent-color)] text-white hover:brightness-110'
+                      }`}
+                    >
+                      {isFollowing ? <><Check size={16} /> Seguindo</> : <><User size={16} /> Seguir</>}
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex-1 overflow-y-auto mt-20 px-8 pb-8 custom-scrollbar">
+                {/* Tabs */}
+                <div className="flex gap-4 mb-6 border-b border-white/5 pb-4">
+                  <button 
+                    onClick={() => setProfileModalTab('posts')}
+                    className={`flex-1 flex flex-col items-center justify-center p-4 rounded-2xl transition-all ${profileModalTab === 'posts' ? 'bg-white/10 shadow-inner scale-105' : 'hover:bg-white/5 opacity-50 hover:opacity-100'}`}
+                  >
+                    <span className="block text-2xl font-black text-white">{viewingUser.postsCount || viewingUserPosts.length}</span>
+                    <span className="text-[10px] font-bold text-[var(--accent-color)] uppercase tracking-widest mt-1">Artes</span>
+                  </button>
+                  <button 
+                    onClick={() => setProfileModalTab('followers')}
+                    className={`flex-1 flex flex-col items-center justify-center p-4 rounded-2xl transition-all ${profileModalTab === 'followers' ? 'bg-white/10 shadow-inner scale-105' : 'hover:bg-white/5 opacity-50 hover:opacity-100'}`}
+                  >
+                    <span className="block text-2xl font-black text-white">{followersCount}</span>
+                    <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mt-1">Seguidores</span>
+                  </button>
+                </div>
+                
+                {/* Tab Content */}
+                {profileModalTab === 'posts' ? (
+                  <>
+                    <h3 className="text-lg font-black text-white mb-4">Galeria</h3>
+                    {viewingUserPosts.length === 0 ? (
+                      <div className="py-20 text-center bg-white/5 rounded-3xl border border-dashed border-white/10">
+                        <p className="text-sm text-[var(--text-muted)] font-bold">Nenhuma arte pÃºblica encontrada.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {viewingUserPosts.map(post => (
+                          <div key={post.id} className="bg-[var(--bg-panel)] rounded-2xl border border-white/5 overflow-hidden group">
+                            <div className="aspect-square bg-black/20 flex items-center justify-center p-2 cursor-pointer" onClick={() => {
+                              const idMatch = post.description?.match(/\[ID:(.*)\|(.*)\]/);
+                              setZoomedPost({
+                                ...post, 
+                                description: post.description?.replace(/\[ID:.*\]/, '').trim(),
+                                _embeddedName: idMatch ? idMatch[2] : null
+                              });
+                            }}>
+                              <img src={post.image_url} alt={post.title} className="max-w-full max-h-full object-contain image-pixelated group-hover:scale-105 transition-transform" />
+                            </div>
+                            <div className="p-3 bg-black/40 backdrop-blur-md">
+                              <h4 className="font-bold text-xs text-white truncate">{post.title}</h4>
+                              {post.description && <p className="text-[10px] text-gray-400 truncate mt-0.5">{post.description.replace(/\[ID:.*\]/, '').trim()}</p>}
+                              <div className="flex items-center justify-between mt-1">
+                                <span className="text-[9px] text-[var(--text-muted)]">{new Date(post.created_at).toLocaleDateString()}</span>
+                                <div className="flex items-center gap-1 text-[var(--text-muted)] text-[10px] font-bold">
+                                  <Heart size={10} className="text-red-400" /> {post.likes || 0}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-lg font-black text-white mb-4">Seguidores</h3>
+                    {viewingUserFollowers.length === 0 ? (
+                      <div className="py-20 text-center bg-white/5 rounded-3xl border border-dashed border-white/10">
+                        <p className="text-sm text-[var(--text-muted)] font-bold">Nenhum seguidor ainda.</p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-3">
+                        {viewingUserFollowers.map(follower => (
+                          <div key={follower.id} className="flex items-center justify-between p-4 bg-black/20 rounded-2xl border border-white/5">
+                            <div className="flex items-center gap-4">
+                              <div className="w-12 h-12 rounded-full overflow-hidden bg-white/10">
+                                <img src={getAvatarFallback(follower.avatar_url, follower.display_name || follower.id)} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).src = getAvatarFallback(null, follower.display_name || follower.id); }} />
+                              </div>
+                              <div>
+                                <h4 className="font-bold text-white text-sm flex items-center gap-2">
+                                  {follower.display_name}
+                                  {follower.is_pro && <Star size={10} className="text-yellow-400 fill-yellow-400" />}
+                                </h4>
+                              </div>
+                            </div>
+                            {session?.user?.id !== follower.id && (
+                              <button 
+                                onClick={() => handleViewUserProfile(follower.id, follower)}
+                                className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-full text-xs font-bold transition-colors"
+                              >
+                                Ver Perfil
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ========== ZOOMED POST LIGHTBOX ========== */}
+      <AnimatePresence>
+        {zoomedPost && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4"
+            onClick={() => setZoomedPost(null)}
+          >
+            <button className="absolute top-6 right-6 p-3 bg-white/10 rounded-full text-white hover:bg-white/20 transition-colors backdrop-blur-md">
+              <X size={24} />
+            </button>
+            
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="relative max-w-[95vw] max-h-[85vh] flex items-center justify-center"
+              onClick={e => e.stopPropagation()}
+            >
+              <img 
+                src={zoomedPost.image_url} 
+                alt={zoomedPost.title} 
+                className="w-full h-full object-contain image-pixelated shadow-[0_0_80px_rgba(0,0,0,0.5)]"
+              />
+              
+              {/* Marca D'agua com nome do desenhista */}
+              <div className="absolute bottom-3 right-3 bg-black/35 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/5 pointer-events-none shadow-lg">
+                <span className="text-white/50 text-[10px] font-bold tracking-wider flex items-center gap-1.5">
+                  DragonArt · @{zoomedPost._embeddedName || zoomedPost.profiles?.display_name || 'Anônimo'}
+                </span>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
 
@@ -1789,6 +2871,255 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
         )}
       </AnimatePresence>
 
+      {/* ========== THEME PREVIEW OVERLAY ========== */}
+      <AnimatePresence>
+        {previewTheme && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[10000] flex flex-col"
+            style={{ backgroundColor: previewTheme.colors.bgApp }}
+          >
+            {/* Simulated editor background to show how the theme looks */}
+            <div className="flex-1 relative overflow-hidden">
+              {/* Top bar simulation */}
+              <div className="h-12 flex items-center px-4 gap-3" style={{ backgroundColor: previewTheme.colors.bgSurface, borderBottom: `1px solid ${previewTheme.colors.borderSubtle}` }}>
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: previewTheme.colors.accentColor }} />
+                <div className="h-2 w-20 rounded-full" style={{ backgroundColor: previewTheme.colors.bgElement }} />
+                <div className="flex-1" />
+                <div className="h-2 w-16 rounded-full" style={{ backgroundColor: previewTheme.colors.bgElement }} />
+              </div>
+
+              {/* Canvas area */}
+              <div className="flex-1 flex items-center justify-center p-8" style={{ backgroundColor: previewTheme.colors.bgApp }}>
+                {/* White drawing sheet */}
+                <div className="w-[280px] h-[280px] bg-white rounded-lg shadow-2xl relative" style={{ boxShadow: `0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px ${previewTheme.colors.borderSubtle}` }}>
+                  {/* Simple pixel art grid preview */}
+                  <div className="absolute inset-4 grid grid-cols-8 grid-rows-8 gap-px opacity-10">
+                    {Array.from({ length: 64 }).map((_, i) => (
+                      <div key={i} className="bg-gray-300" />
+                    ))}
+                  </div>
+                  {/* Simple pixel art drawing */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <svg width="120" height="120" viewBox="0 0 8 8" style={{ imageRendering: 'pixelated' }}>
+                      {/* Dragon silhouette */}
+                      <rect x="3" y="0" width="2" height="1" fill={previewTheme.colors.accentColor} />
+                      <rect x="2" y="1" width="4" height="1" fill={previewTheme.colors.accentColor} />
+                      <rect x="1" y="2" width="6" height="1" fill={previewTheme.colors.accentColor} />
+                      <rect x="2" y="3" width="4" height="1" fill={previewTheme.colors.accentColor} />
+                      <rect x="3" y="4" width="2" height="1" fill={previewTheme.colors.accentColor} />
+                      <rect x="2" y="5" width="1" height="1" fill={previewTheme.colors.accentColor} />
+                      <rect x="5" y="5" width="1" height="1" fill={previewTheme.colors.accentColor} />
+                      <rect x="1" y="6" width="2" height="1" fill={previewTheme.colors.accentColor} />
+                      <rect x="5" y="6" width="2" height="1" fill={previewTheme.colors.accentColor} />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom panel simulation */}
+              <div className="h-14 flex items-center justify-center gap-4 px-4" style={{ backgroundColor: previewTheme.colors.bgPanel, borderTop: `1px solid ${previewTheme.colors.borderSubtle}` }}>
+                {[1,2,3,4,5].map(i => (
+                  <div key={i} className="w-8 h-8 rounded-lg" style={{ backgroundColor: previewTheme.colors.bgElement }} />
+                ))}
+              </div>
+
+              {/* Theme name badge */}
+              <motion.div
+                initial={{ y: -20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.2 }}
+                className="absolute top-16 left-1/2 -translate-x-1/2 px-5 py-2 rounded-full shadow-xl flex items-center gap-2"
+                style={{ backgroundColor: previewTheme.colors.bgPanel, border: `1px solid ${previewTheme.colors.borderStrong}` }}
+              >
+                <Palette size={14} style={{ color: previewTheme.colors.accentColor }} />
+                <span className="text-sm font-black" style={{ color: previewTheme.colors.textPrimary }}>{previewTheme.name}</span>
+              </motion.div>
+            </div>
+
+            {/* Purchase overlay at bottom */}
+            <motion.div
+              initial={{ y: 80, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.15, type: 'spring', damping: 25, stiffness: 300 }}
+              className="absolute bottom-0 left-0 right-0 p-5 pb-8"
+              style={{ background: `linear-gradient(to top, ${previewTheme.colors.bgApp} 60%, transparent)` }}
+            >
+              <div className="max-w-md mx-auto flex flex-col gap-3">
+                <div className="text-center">
+                  <p className="text-xs font-bold opacity-60" style={{ color: previewTheme.colors.textSecondary }}>Este tema requer</p>
+                  <h3 className="text-xl font-black flex items-center justify-center gap-2" style={{ color: previewTheme.colors.textPrimary }}>
+                    <Star size={20} className="fill-yellow-400 text-yellow-400" /> Dragon Art PRO
+                  </h3>
+                </div>
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => {
+                    cancelThemePreview();
+                    setPreviewTheme(null);
+                    setShowSettings(false);
+                    setShowProModal(true);
+                  }}
+                  className="w-full p-4 bg-gradient-to-r from-yellow-400 via-orange-500 to-yellow-400 rounded-2xl text-black font-black text-base shadow-[0_0_30px_rgba(251,191,36,0.3)] flex items-center justify-center gap-2 active:scale-95 transition-all"
+                >
+                  <Star size={18} className="fill-black" /> DESBLOQUEAR TODOS OS TEMAS
+                </motion.button>
+                <button
+                  onClick={cancelThemePreview}
+                  className="w-full p-3 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2 hover:bg-white/10"
+                  style={{ color: previewTheme.colors.textMuted }}
+                >
+                  <X size={16} /> Voltar às configurações
+                </button>
+              </div>
+            </motion.div>
+
+            {/* Close button at top */}
+            <motion.button
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              onClick={cancelThemePreview}
+              className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-white/10"
+              style={{ backgroundColor: `${previewTheme.colors.bgPanel}cc`, color: previewTheme.colors.textPrimary }}
+            >
+              <X size={20} />
+            </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Avatar Picker Modal */}
+      <AnimatePresence>
+        {showAvatarPicker && (
+          <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowAvatarPicker(false)} className="absolute inset-0 bg-black/90 backdrop-blur-md" />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-lg bg-[var(--bg-panel)] rounded-[40px] border border-white/10 shadow-3xl overflow-hidden flex flex-col max-h-[85vh]"
+            >
+              <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/5">
+                <div>
+                  <h3 className="text-xl font-black text-white uppercase tracking-tight">Escolha seu Avatar</h3>
+                  <p className="text-[10px] font-bold text-[var(--accent-color)] uppercase tracking-widest mt-0.5">Fotos Profissionais & Dinâmicas</p>
+                </div>
+                <button onClick={() => setShowAvatarPicker(false)} className="w-10 h-10 flex items-center justify-center bg-white/5 hover:bg-red-500/20 hover:text-red-400 rounded-full transition-all">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+                {/* Standard Avatars */}
+                <div className="mb-8">
+                  <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <User size={14} /> Avatares Padrão
+                  </h3>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                    {avatars.map((url, i) => (
+                      <motion.button 
+                        key={i} 
+                        whileHover={{ scale: 1.05 }} 
+                        whileTap={{ scale: 0.95 }} 
+                        onClick={async () => {
+                          setProfileImage(url);
+                          setShowAvatarPicker(false);
+                          sound.playClick();
+                          
+                          // Optimistic update for community posts
+                          if (session?.user?.id) {
+                            setCommunityPosts(currentPosts => 
+                              currentPosts.map(post => 
+                                post.user_id === session.user.id 
+                                  ? { ...post, profiles: { ...post.profiles, avatar_url: url } } 
+                                  : post
+                              )
+                            );
+                            
+                            await supabase.from('profiles').upsert({
+                              id: session.user.id,
+                              avatar_url: url,
+                              updated_at: new Date()
+                            });
+                            await supabase.auth.updateUser({ data: { avatar_url: url } });
+                          }
+                        }}
+                        className={`relative aspect-square rounded-2xl overflow-hidden border-2 transition-all ${
+                          profileImage === url ? 'border-[var(--accent-color)] ring-4 ring-[var(--accent-color)]/20' : 'border-white/5 opacity-60 hover:opacity-100'
+                        }`}
+                      >
+                        <img src={url} className="w-full h-full object-cover" />
+                        {profileImage === url && <div className="absolute inset-0 bg-[var(--accent-color)]/20 flex items-center justify-center"><Check className="text-white bg-[var(--accent-color)] rounded-full p-1" size={16} /></div>}
+                      </motion.button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* PRO Avatars */}
+                <div className="mb-4">
+                  <h3 className="text-xs font-black text-yellow-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <Star size={14} className="fill-yellow-500" /> Avatares Animados PRO
+                  </h3>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                    {proAvatars.map((url, i) => (
+                      <motion.button 
+                        key={i} 
+                        whileHover={{ scale: isPro ? 1.05 : 1 }} 
+                        whileTap={{ scale: isPro ? 0.95 : 1 }} 
+                        onClick={async () => { 
+                          if (isPro) {
+                            setProfileImage(url); 
+                            setShowAvatarPicker(false);
+                            sound.playClick(); 
+                            
+                            // Optimistic update for community posts
+                            if (session?.user?.id) {
+                              setCommunityPosts(currentPosts => 
+                                currentPosts.map(post => 
+                                  post.user_id === session.user.id 
+                                    ? { ...post, profiles: { ...post.profiles, avatar_url: url } } 
+                                    : post
+                                )
+                              );
+                              
+                              await supabase.from('profiles').upsert({
+                                id: session.user.id,
+                                avatar_url: url,
+                                updated_at: new Date()
+                              });
+                              await supabase.auth.updateUser({ data: { avatar_url: url } });
+                            }
+                          } else {
+                            alert('Este avatar animado é exclusivo para membros PRO! 🌟');
+                          }
+                        }}
+                        className={`relative aspect-square rounded-2xl overflow-hidden border-2 transition-all ${
+                          profileImage === url ? 'border-yellow-500 ring-4 ring-yellow-500/20' : 'border-white/5'
+                        } ${!isPro ? 'grayscale opacity-40' : 'hover:opacity-100'}`}
+                      >
+                        <img src={url} className="w-full h-full object-cover" />
+                        {!isPro && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                            <Lock size={16} className="text-white" />
+                          </div>
+                        )}
+                        {profileImage === url && <div className="absolute inset-0 bg-yellow-500/20 flex items-center justify-center"><Check className="text-white bg-yellow-500 rounded-full p-1" size={16} /></div>}
+                      </motion.button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 border-t border-white/5 bg-white/[0.02] flex items-center justify-center">
+                <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase text-center max-w-xs">Essas fotos aparecem no seu perfil e nas suas artes publicadas na comunidade.</p>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

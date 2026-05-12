@@ -61,11 +61,11 @@ if %GRADLE_EXIT% NEQ 0 (
 
 echo.
 echo ==============================================
-echo [4/4] COPIANDO PARA A PASTA DE DOWNLOAD v1.7.1...
+echo [4/4] COPIANDO PARA A PASTA DE DOWNLOAD v1.8.5...
 echo ==============================================
-copy /y "android\app\build\outputs\apk\debug\app-debug.apk" "Ferramentas\interno\download_server\DragonArt_v1_7_1.apk"
+copy /y "android\app\build\outputs\apk\debug\app-debug.apk" "Ferramentas\interno\download_server\DragonArt_v1_8_5.apk"
 echo.
-echo O arquivo atualizado esta em: Ferramentas\interno\download_server\DragonArt_v1_7_1.apk
+echo O arquivo atualizado esta em: Ferramentas\interno\download_server\DragonArt_v1_8_5.apk
 echo.
 echo Agora voce pode fechar esta janela e abrir o "SERVIDOR_DOWNLOAD.bat".
 echo.

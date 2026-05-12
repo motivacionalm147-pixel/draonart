@@ -53,10 +53,15 @@ interface LayerPanelProps {
   setTransparentBackground?: (val: boolean) => void;
   canvasBackgroundColor?: string;
   setCanvasBackgroundColor?: (color: string) => void;
+  isPro?: boolean;
+  setIsPreviewMode: (val: boolean) => void;
+  setPreviousCanvasColor: (val: string) => void;
 }
 
 export const LayerPanel: React.FC<LayerPanelProps> = ({
   layers,
+  setIsPreviewMode,
+  setPreviousCanvasColor,
   currentLayer,
   setCurrentLayer,
   addLayer,
@@ -75,7 +80,8 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({
   transparentBackground = false,
   setTransparentBackground,
   canvasBackgroundColor = '#ffffff',
-  setCanvasBackgroundColor
+  setCanvasBackgroundColor,
+  isPro = false
 }) => {
   const displayLayers = [...layers].reverse();
   const bgPresetColors = [
@@ -161,18 +167,39 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({
 
               {/* Color Presets Grid */}
               <div className="grid grid-cols-6 gap-2">
-                {bgPresetColors.map((color) => (
-                  <button
-                    key={color}
-                    onClick={(e) => { e.stopPropagation(); sound.playClick(); setCanvasBackgroundColor(color); }}
-                    className={`w-full aspect-square rounded-xl border-2 transition-all active:scale-90 hover:scale-105 ${
-                      canvasBackgroundColor === color
-                        ? 'border-[var(--accent-color)] shadow-lg shadow-[var(--accent-color)]/20 scale-110'
-                        : 'border-white/10 hover:border-white/30'
-                    }`}
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
+                {bgPresetColors.map((color, idx) => {
+                  const isColorPro = idx >= 5;
+                  const isLocked = isColorPro && !isPro;
+                  
+                  return (
+                    <button
+                      key={color}
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        sound.playClick(); 
+                        if (isLocked) {
+                          setPreviousCanvasColor(canvasBackgroundColor);
+                          setCanvasBackgroundColor(color);
+                          setIsPreviewMode(true);
+                        } else {
+                          setCanvasBackgroundColor(color);
+                        }
+                      }}
+                      className={`w-full aspect-square rounded-xl border-2 transition-all active:scale-90 hover:scale-105 relative ${
+                        canvasBackgroundColor === color
+                          ? 'border-[var(--accent-color)] shadow-lg shadow-[var(--accent-color)]/20 scale-110'
+                          : 'border-white/10 hover:border-white/30'
+                      }`}
+                      style={{ backgroundColor: color }}
+                    >
+                      {isLocked && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-xl">
+                          <Lock size={12} className="text-yellow-400" />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Custom Color Input */}

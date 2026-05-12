@@ -39,10 +39,16 @@ interface AjustesPanelProps {
   setGridOnlyOnZoom: (v: boolean) => void;
   gridSize: number;
   setGridSize: (v: number) => void;
+  isPro?: boolean;
+  setShowUpgradeModal?: (v: boolean) => void;
+  setIsPreviewMode: (val: boolean) => void;
+  setPreviousAppBackground: (val: string) => void;
 }
 
 export const AjustesPanel: React.FC<AjustesPanelProps> = ({
   setActivePanel,
+  setIsPreviewMode,
+  setPreviousAppBackground,
   setShowExportModal,
   setShowTutorials,
   resizeInput,
@@ -70,7 +76,9 @@ export const AjustesPanel: React.FC<AjustesPanelProps> = ({
   gridOnlyOnZoom,
   setGridOnlyOnZoom,
   gridSize,
-  setGridSize
+  setGridSize,
+  isPro = false,
+  setShowUpgradeModal
 }) => {
   const [activeTab, setActiveTab] = useState<'tela' | 'ambiente' | 'sistema'>('tela');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -142,46 +150,7 @@ export const AjustesPanel: React.FC<AjustesPanelProps> = ({
                   <div className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] flex items-center gap-2">
                     <Maximize size={12} /> DIMENSÕES DA FOLHA
                   </div>
-                  <div className="flex gap-4 items-center justify-center bg-black/30 p-4 rounded-2xl border border-white/5">
-                    <div className="flex flex-col gap-1.5 w-full">
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest text-center">Larg.</label>
-                      <input 
-                        type="number" 
-                        value={resizeInput.w} 
-                        onChange={e => setResizeInput({ ...resizeInput, w: Math.min(512, Math.max(1, parseInt(e.target.value) || 1)) })}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') {
-                            applyResize(resizeInput.w, resizeInput.h);
-                          }
-                        }}
-                        className="w-full bg-black/40 border border-white/10 text-white p-2.5 rounded-xl text-center text-sm font-bold focus:outline-none focus:border-[var(--accent-color)] transition-colors"
-                      />
-                    </div>
-                    <div className="text-gray-600 font-bold text-sm mt-5">×</div>
-                    <div className="flex flex-col gap-1.5 w-full">
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest text-center">Alt.</label>
-                      <input 
-                        type="number" 
-                        value={resizeInput.h} 
-                        onChange={e => setResizeInput({ ...resizeInput, h: Math.min(512, Math.max(1, parseInt(e.target.value) || 1)) })}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') {
-                            applyResize(resizeInput.w, resizeInput.h);
-                          }
-                        }}
-                        className="w-full bg-black/40 border border-white/10 text-white p-2.5 rounded-xl text-center text-sm font-bold focus:outline-none focus:border-[var(--accent-color)] transition-colors"
-                      />
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      sound.playClick();
-                      applyResize(resizeInput.w, resizeInput.h);
-                    }}
-                    className="w-full py-3 bg-[var(--accent-color)] text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-[var(--accent-color)]/20 hover:brightness-110 active:scale-95 transition-all"
-                  >
-                    Aplicar Tamanho
-                  </button>
+                  {/* Standard quick sizes - FREE */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                     {[16, 32, 64, 128].map(size => (
                       <button
@@ -197,6 +166,47 @@ export const AjustesPanel: React.FC<AjustesPanelProps> = ({
                       </button>
                     ))}
                   </div>
+                  {/* Custom size - PRO ONLY */}
+                  {isPro ? (
+                    <>
+                      <div className="flex gap-4 items-center justify-center bg-black/30 p-4 rounded-2xl border border-white/5">
+                        <div className="flex flex-col gap-1.5 w-full">
+                          <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest text-center">Larg.</label>
+                          <input 
+                            type="number" 
+                            value={resizeInput.w} 
+                            onChange={e => setResizeInput({ ...resizeInput, w: Math.min(512, Math.max(1, parseInt(e.target.value) || 1)) })}
+                            onKeyDown={e => { if (e.key === 'Enter') applyResize(resizeInput.w, resizeInput.h); }}
+                            className="w-full bg-black/40 border border-white/10 text-white p-2.5 rounded-xl text-center text-sm font-bold focus:outline-none focus:border-[var(--accent-color)] transition-colors"
+                          />
+                        </div>
+                        <div className="text-gray-600 font-bold text-sm mt-5">×</div>
+                        <div className="flex flex-col gap-1.5 w-full">
+                          <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest text-center">Alt.</label>
+                          <input 
+                            type="number" 
+                            value={resizeInput.h} 
+                            onChange={e => setResizeInput({ ...resizeInput, h: Math.min(512, Math.max(1, parseInt(e.target.value) || 1)) })}
+                            onKeyDown={e => { if (e.key === 'Enter') applyResize(resizeInput.w, resizeInput.h); }}
+                            className="w-full bg-black/40 border border-white/10 text-white p-2.5 rounded-xl text-center text-sm font-bold focus:outline-none focus:border-[var(--accent-color)] transition-colors"
+                          />
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => { sound.playClick(); applyResize(resizeInput.w, resizeInput.h); }}
+                        className="w-full py-3 bg-[var(--accent-color)] text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-[var(--accent-color)]/20 hover:brightness-110 active:scale-95 transition-all"
+                      >
+                        Aplicar Tamanho
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => setShowUpgradeModal?.(true)}
+                      className="w-full py-3 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 bg-white/5 text-yellow-400/70 hover:bg-yellow-400/10 border border-yellow-400/20 transition-all"
+                    >
+                      <Lock size={14} /> Tamanho Personalizado <span className="text-[9px] font-black bg-yellow-400/20 px-2 py-0.5 rounded-full">PRO</span>
+                    </button>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -211,6 +221,11 @@ export const AjustesPanel: React.FC<AjustesPanelProps> = ({
                   </span>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-64 overflow-y-auto pr-1 custom-scrollbar">
                     {[
+                      { id: 'linear-gradient(to bottom, #4a148c, #000000)', name: 'Degradê Roxo' },
+                      { id: 'linear-gradient(to bottom, #0d1b2a, #000000)', name: 'Azul Escuro' },
+                      { id: 'linear-gradient(to bottom, #1a1a1a, #0a0a0a)', name: 'Grafite' },
+                      { id: 'linear-gradient(to bottom, #ff5e62, #ff9966)', name: 'Pôr do Sol' },
+                      { id: 'linear-gradient(to bottom, #11998e, #38ef7d)', name: 'Verde Neon' },
                       { id: '/backgrounds/bg_anime_train.png', name: 'Trem Anime' },
                       { id: '/backgrounds/bg_anime_rooftop.png', name: 'Neo Tokyo' },
                       { id: '/backgrounds/bg_anime_school.png', name: 'Escola' },
@@ -230,17 +245,40 @@ export const AjustesPanel: React.FC<AjustesPanelProps> = ({
                       { id: '/backgrounds/mountain.png', name: 'Montanha' },
                       { id: '/backgrounds/calm_nature.png', name: 'Natureza' },
                       { id: '/backgrounds/sunset_clouds.png', name: 'Nuvens' },
-                    ].map(bg => (
-                      <button
-                        key={bg.id}
-                        onClick={() => { sound.playClick(); setAppBackground(bg.id); }}
-                        className={`relative h-16 rounded-2xl overflow-hidden border-2 transition-all ${appBackground === bg.id ? 'border-[var(--accent-color)] shadow-xl shadow-[var(--accent-color)]/30 scale-[1.05]' : 'border-transparent hover:border-white/20'}`}
-                      >
-                        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url('${bg.id}')` }} />
-                        <div className="absolute inset-0 bg-black/40" />
-                        <div className="absolute inset-0 flex items-center justify-center text-[9px] font-black text-white uppercase drop-shadow-md px-1 text-center">{bg.name}</div>
-                      </button>
-                    ))}
+                    ].map((bg, idx) => {
+                      const isBgPro = idx >= 5;
+                      const isLocked = isBgPro && !isPro;
+                      
+                      return (
+                        <button
+                          key={bg.id}
+                          onClick={() => { 
+                            sound.playClick(); 
+                            if (isLocked) {
+                              setPreviousAppBackground(appBackground);
+                              setAppBackground(bg.id);
+                              setActivePanel(null);
+                              setIsPreviewMode(true);
+                            } else {
+                              setAppBackground(bg.id);
+                            }
+                          }}
+                          className={`relative h-16 rounded-2xl overflow-hidden border-2 transition-all ${appBackground === bg.id ? 'border-[var(--accent-color)] shadow-xl shadow-[var(--accent-color)]/30 scale-[1.05]' : 'border-transparent hover:border-white/20'}`}
+                        >
+                          <div 
+                            className="absolute inset-0 bg-cover bg-center" 
+                            style={{ backgroundImage: bg.id.startsWith('/') ? `url('${bg.id}')` : bg.id }} 
+                          />
+                          <div className="absolute inset-0 bg-black/40" />
+                          <div className="absolute inset-0 flex items-center justify-center text-[9px] font-black text-white uppercase drop-shadow-md px-1 text-center">{bg.name}</div>
+                          {isLocked && (
+                            <div className="absolute top-1 right-1 bg-black/60 p-1 rounded-full">
+                              <Lock size={10} className="text-yellow-400" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
 
                   {/* Blur */}

@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
-import { Heart, User as UserIcon, Home, Compass, Trophy, Settings, LogOut, Image as ImageIcon, MessageSquare, Send, MonitorSmartphone, Check } from 'lucide-react';
+import { Heart, User as UserIcon, Home, Compass, Trophy, Settings, LogOut, Image as ImageIcon, MessageSquare, Send, MonitorSmartphone, Check, X, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { CONFIG } from '../config';
 import { BADGES } from '../data/badges';
+import { getAvatarFallback } from '../utils';
 
 export default function WebDashboard() {
   const [posts, setPosts] = useState<any[]>([]);
@@ -42,7 +43,22 @@ export default function WebDashboard() {
         setUser(data.user);
         // Load user profile
         const { data: profileData } = await supabase.from('profiles').select('*').eq('id', data.user.id).single();
-        if (profileData) setProfile(profileData);
+        
+        if (profileData) {
+          setProfile(profileData);
+          
+          // FORCED SYNC: Ensure every active user has at least a default avatar and name in the database
+          const needsSync = !profileData.avatar_url || !profileData.display_name;
+          if (needsSync) {
+            const updates = {
+              display_name: profileData.display_name || data.user.user_metadata?.display_name || 'Artista Pixel',
+              avatar_url: profileData.avatar_url || data.user.user_metadata?.avatar_url,
+              updated_at: new Date()
+            };
+            await supabase.from('profiles').update(updates).eq('id', data.user.id);
+            setProfile({ ...profileData, ...updates });
+          }
+        }
         
         // Load likes
         const { data: likesData } = await supabase.from('post_likes').select('post_id').eq('user_id', data.user.id);
@@ -58,7 +74,7 @@ export default function WebDashboard() {
     const fetchPosts = async () => {
       const { data, error } = await supabase
         .from('posts')
-        .select(`id, title, image_url, likes, created_at, profiles (id, display_name, is_pro, badge)`)
+        .select(`id, title, image_url, likes, description, created_at, user_id, profiles (id, display_name, is_pro, badge, avatar_url)`)
         .order('created_at', { ascending: false })
         .limit(20);
       if (!error && data) setPosts(data);
@@ -86,14 +102,13 @@ export default function WebDashboard() {
     try {
       if (isLiked) {
         await supabase.from('post_likes').delete().eq('post_id', postId).eq('user_id', user.id);
-        await supabase.rpc('decrement_likes', { row_id: postId }); // if RPC exists, else manual update
+        await supabase.rpc('decrement_likes', { row_id: postId });
       } else {
         await supabase.from('post_likes').insert({ post_id: postId, user_id: user.id });
         await supabase.rpc('increment_likes', { row_id: postId });
       }
     } catch (e) {
       console.error(e);
-      // Revert optimistic update on failure (ignored for brevity)
     }
   };
 
@@ -106,7 +121,7 @@ export default function WebDashboard() {
     if (!comments[postId]) {
       const { data } = await supabase
         .from('comments')
-        .select(`id, content, created_at, profiles (display_name, badge, is_pro)`)
+        .select(`id, content, created_at, profiles (display_name, badge, is_pro, avatar_url)`)
         .eq('post_id', postId)
         .order('created_at', { ascending: true });
       if (data) {
@@ -122,7 +137,7 @@ export default function WebDashboard() {
     }
     if (!commentInput.trim()) return;
     const newComment = { post_id: postId, user_id: user.id, content: commentInput.trim() };
-    const { data, error } = await supabase.from('comments').insert(newComment).select(`id, content, created_at, profiles (display_name, badge, is_pro)`).single();
+    const { data, error } = await supabase.from('comments').insert(newComment).select(`id, content, created_at, profiles (display_name, badge, is_pro, avatar_url)`).single();
     if (!error && data) {
       setComments(prev => ({ ...prev, [postId]: [...(prev[postId] || []), data] }));
       setCommentInput('');
@@ -173,6 +188,7 @@ export default function WebDashboard() {
       const { error: insertError } = await supabase.from('posts').insert({
         user_id: user.id,
         title: postTitle,
+        description: `[ID:${profile?.avatar_url || ''}|${profile?.display_name || 'Artista'}]`,
         image_url: publicUrlData.publicUrl
       });
       if (insertError) throw insertError;
@@ -194,6 +210,7 @@ export default function WebDashboard() {
       console.error(err);
     }
   };
+
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans flex flex-col">
       {/* Top Navbar */}
@@ -215,12 +232,16 @@ export default function WebDashboard() {
             + Nova Arte
           </button>
           
-          {/* Menu de Perfil / Logout */}
           {user ? (
             <div className="relative group cursor-pointer">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-700 p-[2px]">
-                <div className="w-full h-full bg-black rounded-full overflow-hidden flex items-center justify-center relative">
-                  <span className="text-green-400 font-black text-lg">{profile?.display_name?.charAt(0).toUpperCase() || 'U'}</span>
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-700 p-[2px] shadow-[0_0_15px_rgba(34,197,94,0.2)] hover:scale-110 transition-transform duration-300">
+                <div className="w-full h-full bg-black rounded-full overflow-hidden flex items-center justify-center relative border border-white/10">
+                  <img 
+                    src={getAvatarFallback(profile?.avatar_url, profile?.display_name || user?.id || 'user')} 
+                    className="w-full h-full object-cover" 
+                    alt="Avatar" 
+                    onError={(e) => { (e.target as HTMLImageElement).src = getAvatarFallback(null, profile?.display_name || user?.id || 'user'); }}
+                  />
                   {profile?.is_pro && (
                     <div className="absolute inset-0 bg-gradient-to-tr from-yellow-500/20 to-transparent mix-blend-overlay"></div>
                   )}
@@ -256,7 +277,7 @@ export default function WebDashboard() {
         {/* Left Sidebar */}
         <aside className="w-64 hidden md:flex flex-col gap-2 sticky top-24 h-max">
           <div className="bg-[#0a0a0a] rounded-2xl border border-[#222] p-3 flex flex-col gap-1">
-            <button className="flex items-center gap-3 p-3 rounded-xl bg-[var(--accent-color)]/10 text-[var(--accent-color)] font-bold w-full text-left">
+            <button className="flex items-center gap-3 p-3 rounded-xl bg-green-500/10 text-green-400 font-bold w-full text-left">
               <Home size={18} /> Feed Principal
             </button>
             <button className="flex items-center gap-3 p-3 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 font-bold w-full text-left transition-colors">
@@ -272,8 +293,12 @@ export default function WebDashboard() {
         <main className="flex-1 flex flex-col gap-6 max-w-2xl">
           {/* Post Input Fake */}
           <div className="bg-[#0a0a0a] rounded-2xl border border-[#222] p-4 flex gap-4 items-center">
-            <div className="w-10 h-10 rounded-full bg-[#222] flex-shrink-0 flex items-center justify-center">
-              {profile?.badge ? <img src={BADGES.find(b => b.id === profile.badge)?.image} className="w-6 h-6 object-contain" /> : <UserIcon size={18} />}
+            <div className="w-10 h-10 rounded-full bg-[#151515] flex-shrink-0 flex items-center justify-center overflow-hidden border border-[#222] shadow-inner group-hover:border-green-500/50 transition-colors">
+              <img 
+                src={getAvatarFallback(profile?.avatar_url, profile?.display_name || 'user')} 
+                className="w-full h-full object-cover" 
+                onError={(e) => { (e.target as HTMLImageElement).src = getAvatarFallback(null, profile?.display_name || 'user'); }}
+              />
             </div>
             <input type="text" onClick={() => navigate('/app')} placeholder="Crie uma arte no Estúdio para postar aqui..." className="flex-1 bg-[#111] border border-[#222] rounded-full px-4 py-2.5 text-sm outline-none cursor-pointer hover:border-green-500 transition-colors" readOnly />
             <button onClick={() => navigate('/app')} className="p-2.5 bg-[#1a1a2e] text-blue-400 rounded-xl hover:bg-[#2a2a3e] transition-colors"><ImageIcon size={18} /></button>
@@ -284,7 +309,13 @@ export default function WebDashboard() {
             <div className="flex justify-center py-20"><div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div></div>
           ) : (
             posts.map(post => {
-              const badgeObj = post.profiles?.badge ? BADGES.find(b => b.id === post.profiles.badge) : null;
+              const idMatch = post.description?.match(/\[ID:(.*)\|(.*)\]/);
+              const embeddedAvatar = idMatch ? idMatch[1] : null;
+              const embeddedName = idMatch ? idMatch[2] : null;
+              
+              const p = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
+              const userBadgeId = post.user_id === user?.id ? profile?.badge : p?.badge;
+              const badgeObj = userBadgeId ? BADGES.find(b => b.id === userBadgeId) : null;
               
               return (
                 <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} key={post.id} className="bg-[#0a0a0a] rounded-2xl border border-[#222] overflow-hidden">
@@ -292,29 +323,38 @@ export default function WebDashboard() {
                   {/* Post Header */}
                   <div className="p-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-[#111] flex items-center justify-center relative border border-[#333]">
-                        {/* Dynamic Avatar Badge Render */}
-                        {badgeObj ? (
-                          <>
-                            <div className="absolute inset-0 rounded-full scale-150 blur-md pointer-events-none" style={{ background: badgeObj.glow ? `radial-gradient(circle, ${badgeObj.glow} 0%, transparent 70%)` : 'none', opacity: 0.5 }}></div>
-                            <img src={badgeObj.image} className="w-8 h-8 object-contain relative z-10" alt="Selo" style={{ filter: badgeObj.glow ? `drop-shadow(0 0 5px ${badgeObj.glow})` : 'none' }} />
-                          </>
-                        ) : (
-                          <UserIcon size={18} className="text-gray-500" />
+                      <div className="w-12 h-12 rounded-full bg-[#111] flex items-center justify-center relative border-2 border-white/5 overflow-hidden shadow-2xl group-hover:scale-105 transition-transform">
+                        <img 
+                          src={post.user_id === user?.id 
+                            ? getAvatarFallback(profile?.avatar_url, profile?.display_name || 'user')
+                            : getAvatarFallback(embeddedAvatar || p?.avatar_url, embeddedName || p?.display_name || post.user_id)} 
+                          className="w-full h-full object-cover relative z-10" 
+                          alt="Avatar" 
+                          onError={(e) => { (e.target as HTMLImageElement).src = getAvatarFallback(null, embeddedName || p?.display_name || post.user_id); }}
+                        />
+                        
+                        {badgeObj && (
+                          <div className="absolute bottom-0 right-0 w-5 h-5 bg-[#0a0a0a] rounded-full flex items-center justify-center z-20 border border-[#222] shadow-lg">
+                            <img src={badgeObj.image} className="w-3 h-3 object-contain" />
+                          </div>
                         )}
                       </div>
-                      <div className="flex flex-col cursor-pointer" onClick={() => navigate(`/user/${post.profiles?.id}`)}>
+                      <div className="flex flex-col cursor-pointer" onClick={() => navigate(`/user/${p?.id}`)}>
                         <div className="font-bold flex items-center gap-2 text-lg">
-                          {post.profiles?.display_name || 'Artista'}
-                          {post.profiles?.is_pro && <span className="text-[10px] bg-green-500 text-black px-1.5 py-0.5 rounded uppercase font-black">PRO</span>}
+                          {embeddedName || p?.display_name || 'Artista'}
+                          {p?.is_pro && <span className="text-[10px] bg-green-500 text-black px-1.5 py-0.5 rounded uppercase font-black shadow-[0_0_10px_rgba(34,197,94,0.3)]">PRO</span>}
+                          {( (embeddedName || p?.display_name)?.toLowerCase() === 'kelvin' || p?.id === '41066d58-7c5e-49b5-9009-b1dfd11b72f3') && (
+                            <span className="px-1.5 py-0.5 bg-gradient-to-r from-yellow-500 to-amber-600 text-black text-[10px] font-black rounded shadow-[0_0_10px_rgba(245,158,11,0.5)] animate-pulse">
+                              FUNDADOR
+                            </span>
+                          )}
                         </div>
                         <div className="text-xs text-gray-500">{new Date(post.created_at).toLocaleDateString('pt-BR')}</div>
                       </div>
                     </div>
-                    {/* Delete Post Button */}
-                    {user?.id === post.profiles?.id && (
+                    {user?.id === post.user_id && (
                       <button onClick={() => handleDeletePost(post.id)} className="text-gray-600 hover:text-red-500 transition-colors ml-4 p-1 rounded hover:bg-red-500/10" title="Apagar Arte">
-                        <LogOut size={14} className="rotate-180" />
+                        <Trash2 size={16} />
                       </button>
                     )}
                   </div>
@@ -324,7 +364,6 @@ export default function WebDashboard() {
                     <img src={post.image_url} className="w-full h-full object-contain drop-shadow-2xl image-pixelated" />
                   </div>
                   
-                  {/* Post Actions & Details */}
                   <div className="p-4">
                     <h3 className="font-bold text-xl mb-4">{post.title}</h3>
                     <div className="flex items-center gap-6">
@@ -336,7 +375,6 @@ export default function WebDashboard() {
                       </button>
                     </div>
 
-                    {/* Comments Section */}
                     <AnimatePresence>
                       {activeCommentPostId === post.id && (
                         <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="mt-4 pt-4 border-t border-[#222] overflow-hidden">
@@ -345,8 +383,14 @@ export default function WebDashboard() {
                                const cBadge = comment.profiles?.badge ? BADGES.find(b => b.id === comment.profiles.badge) : null;
                                return (
                                 <div key={comment.id} className="flex gap-3">
-                                  <div className="w-8 h-8 rounded-full bg-[#111] flex items-center justify-center flex-shrink-0 relative">
-                                     {cBadge ? <img src={cBadge.image} className="w-5 h-5 object-contain" /> : <UserIcon size={12} className="text-gray-500"/>}
+                                  <div className="w-8 h-8 rounded-full bg-[#151515] flex items-center justify-center flex-shrink-0 relative overflow-hidden border border-white/5">
+                                     <img 
+                                       src={comment.profiles?.id === user?.id 
+                                         ? getAvatarFallback(profile?.avatar_url, profile?.display_name || 'user')
+                                         : getAvatarFallback(comment.profiles?.avatar_url, comment.profiles?.display_name || 'Usuário')} 
+                                       className="w-full h-full object-cover" 
+                                       onError={(e) => { (e.target as HTMLImageElement).src = getAvatarFallback(null, comment.profiles?.display_name || 'Usuário'); }}
+                                     />
                                   </div>
                                   <div className="bg-[#111] rounded-2xl rounded-tl-none p-3 flex-1 border border-[#222]">
                                     <div className="font-bold text-sm mb-1 flex items-center gap-2">
@@ -378,7 +422,6 @@ export default function WebDashboard() {
                         </motion.div>
                       )}
                     </AnimatePresence>
-
                   </div>
                 </motion.div>
               );
@@ -388,7 +431,6 @@ export default function WebDashboard() {
 
         {/* Right Sidebar */}
         <aside className="w-72 hidden lg:flex flex-col gap-6 sticky top-24 h-max">
-          {/* Versão Beta */}
           <div className="bg-[#0a0a0a] rounded-2xl border border-[#222] p-5 relative overflow-hidden group hover:border-gray-500 transition-colors">
             <h3 className="font-black text-lg mb-2 text-white relative z-10 flex items-center gap-2">
               <MonitorSmartphone size={20} /> Dragon Art Beta
@@ -401,7 +443,6 @@ export default function WebDashboard() {
             </button>
           </div>
 
-          {/* Versão PRO */}
           <div className="bg-gradient-to-br from-green-500/10 to-emerald-600/10 rounded-2xl border border-green-500/30 p-5 relative overflow-hidden group">
             <div className="absolute -top-4 -right-4 p-2 opacity-10 group-hover:scale-110 group-hover:rotate-12 transition-transform"><Trophy size={100}/></div>
             <h3 className="font-black text-xl mb-2 text-green-400 relative z-10 flex items-center gap-2">
@@ -421,7 +462,6 @@ export default function WebDashboard() {
             </button>
           </div>
         </aside>
-
       </div>
 
       {/* Auth Modal */}
@@ -429,7 +469,7 @@ export default function WebDashboard() {
         {showAuthModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-[#111] border border-[#222] rounded-3xl p-8 max-w-sm w-full relative shadow-2xl">
-              <button onClick={() => setShowAuthModal(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white"><LogOut size={20}/></button>
+              <button onClick={() => setShowAuthModal(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white"><X size={20}/></button>
               <div className="flex justify-center mb-6"><img src="/logo.png" alt="Logo" className="w-12 h-12 image-pixelated"/></div>
               <h2 className="text-xl font-black text-center uppercase tracking-widest mb-6">
                 {authMode === 'login' ? 'Entrar' : 'Registrar'}
@@ -460,7 +500,7 @@ export default function WebDashboard() {
         {showPostModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-[#111] border border-[#222] rounded-3xl p-8 max-w-md w-full relative shadow-2xl">
-              <button onClick={() => setShowPostModal(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white"><LogOut size={20}/></button>
+              <button onClick={() => setShowPostModal(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white"><X size={20}/></button>
               <h2 className="text-xl font-black mb-6 uppercase tracking-widest text-green-400">Publicar Arte</h2>
               <form onSubmit={handlePost} className="flex flex-col gap-4">
                 <div>

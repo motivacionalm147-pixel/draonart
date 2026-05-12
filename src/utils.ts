@@ -17,3 +17,13 @@ export function generateId(): string {
     return v.toString(16);
   });
 }
+
+export function getAvatarFallback(url: string | null | undefined, seed: string = ''): string {
+  if (!url || url === '' || url === 'null') {
+    // If no URL, use a high-quality UI-generated avatar from a public service as a fallback
+    // This is much better than a black pixel and ensures the UI always looks full.
+    const name = seed || 'User';
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&color=fff&bold=true&size=128`;
+  }
+  return url;
+}

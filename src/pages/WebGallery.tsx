@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { motion } from 'motion/react';
 import { Heart, User, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { getAvatarFallback } from '../utils';
 
 interface Post {
   id: string;
@@ -14,6 +15,7 @@ interface Post {
     display_name: string;
     experience_level: number;
     is_pro: boolean;
+    avatar_url: string;
   };
 }
 
@@ -36,7 +38,8 @@ export default function WebGallery() {
             profiles (
               display_name,
               experience_level,
-              is_pro
+              is_pro,
+              avatar_url
             )
           `)
           .order('created_at', { ascending: false })
@@ -109,8 +112,12 @@ export default function WebGallery() {
                   <h3 className="font-bold text-lg mb-1 truncate">{post.title}</h3>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-sm text-gray-400">
-                      <div className="w-6 h-6 rounded-full bg-[#222] flex items-center justify-center">
-                        <User size={12} />
+                      <div className="w-6 h-6 rounded-full bg-[#222] flex items-center justify-center overflow-hidden border border-white/10 shadow-sm">
+                        <img 
+                          src={getAvatarFallback(post.profiles?.avatar_url, post.profiles?.display_name || post.id)} 
+                          className="w-full h-full object-cover" 
+                          onError={(e) => { (e.target as HTMLImageElement).src = getAvatarFallback(null, post.profiles?.display_name || post.id); }}
+                        />
                       </div>
                       <span className="truncate max-w-[100px]">{post.profiles?.display_name || 'Usuário'}</span>
                       {post.profiles?.is_pro && (

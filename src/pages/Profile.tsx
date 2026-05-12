@@ -1,39 +1,70 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { User, LogOut, Star, Shield, ArrowLeft, Crown, CheckCircle2, Lock, Sparkles, Layers, Palette, Image as ImageIcon } from 'lucide-react';
+import { User, LogOut, Star, Shield, ArrowLeft, Crown, CheckCircle2, Lock, Sparkles, Layers, Palette, Image as ImageIcon, Users, Settings, Edit3, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CONFIG } from '../config';
 import { BADGES } from '../data/badges';
+import AvatarSelectionModal from '../components/AvatarSelectionModal';
+import BadgeSelectionModal from '../components/BadgeSelectionModal';
+import { getAvatarFallback } from '../utils';
 
 export default function Profile() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showProModal, setShowProModal] = useState(false);
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [showBadgeModal, setShowBadgeModal] = useState(false);
+  const [stats, setStats] = useState({ followers: 0, following: 0 });
   const navigate = useNavigate();
 
+  const fetchProfile = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      navigate('/');
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', session.user.id)
+      .single();
+
+    if (!error && data) {
+      setProfile(data);
+      
+      // Fetch stats
+      const [followersRes, followingRes] = await Promise.all([
+        supabase.from('followers').select('*', { count: 'exact', head: true }).eq('following_id', session.user.id),
+        supabase.from('followers').select('*', { count: 'exact', head: true }).eq('follower_id', session.user.id)
+      ]);
+
+      setStats({
+        followers: followersRes.count || 0,
+        following: followingRes.count || 0
+      });
+    }
+    setLoading(false);
+  };
+
   useEffect(() => {
-    const fetchProfile = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate('/'); // Redirect to home if not logged in
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
-
-      if (!error && data) {
-        setProfile(data);
-      }
-      setLoading(false);
-    };
-
     fetchProfile();
   }, [navigate]);
+
+  const handleUpdateProfile = async (updates: any) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    const { error } = await supabase
+      .from('profiles')
+      .update(updates)
+      .eq('id', session.user.id);
+
+    if (!error) {
+      setProfile({ ...profile, ...updates });
+    }
+  };
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -41,7 +72,11 @@ export default function Profile() {
   };
 
   if (loading) {
-    return <div className="min-h-screen bg-[#050505] flex items-center justify-center"><div className="animate-spin w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full"></div></div>;
+    return (
+      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full"></div>
+      </div>
+    );
   }
 
   const badgeObj = profile?.badge ? BADGES.find(b => b.id === profile.badge) : null;
@@ -56,132 +91,181 @@ export default function Profile() {
   return (
     <div className="min-h-screen bg-[#050505] text-white p-4 md:p-8 font-sans selection:bg-green-500 selection:text-black">
       <div className="max-w-4xl mx-auto">
-        <button onClick={() => navigate('/app')} className="flex items-center gap-2 text-gray-400 mb-6 hover:text-white transition-colors font-bold uppercase tracking-widest text-xs">
-          <ArrowLeft size={16} /> Voltar para o Editor
-        </button>
+        <div className="flex items-center justify-between mb-8">
+          <button onClick={() => navigate('/app')} className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors font-bold uppercase tracking-widest text-xs">
+            <ArrowLeft size={16} /> Voltar para o Editor
+          </button>
+          <div className="flex gap-2">
+            {profile?.is_admin && (
+              <button onClick={() => navigate('/admin')} className="px-4 py-2 bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors">
+                <Shield size={14} /> Admin
+              </button>
+            )}
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           
           {/* Card Principal - Header do Perfil */}
-          <div className="md:col-span-2 bg-[#0a0a0a] border border-[#222] rounded-3xl p-8 shadow-2xl relative overflow-hidden group">
+          <div className="md:col-span-2 bg-[#0a0a0a] border border-[#222] rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden group">
             {/* Efeitos de Fundo */}
             <div className="absolute top-0 right-0 w-96 h-96 bg-green-500/5 blur-[100px] rounded-full translate-x-1/3 -translate-y-1/3 pointer-events-none"></div>
             {profile?.is_pro && <div className="absolute bottom-0 left-0 w-64 h-64 bg-yellow-500/5 blur-[80px] rounded-full -translate-x-1/2 translate-y-1/2 pointer-events-none"></div>}
 
-            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-8 relative z-10">
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-10 relative z-10">
               
-              {/* Foto de Perfil Dinâmica com Selo */}
-              <div className="relative">
-                <div className="w-32 h-32 rounded-full bg-[#111] border-4 border-[#222] flex items-center justify-center relative shadow-2xl z-10">
+              {/* Foto de Perfil com Seleção de Avatar */}
+              <div className="relative group/avatar">
+                <motion.button 
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowAvatarModal(true)}
+                  className="w-32 h-32 rounded-full bg-[#111] border-4 border-[#222] overflow-hidden relative shadow-2xl z-10 block"
+                >
+                  <img 
+                    src={getAvatarFallback(profile?.avatar_url, profile?.display_name || 'user')} 
+                    className="w-full h-full object-cover" 
+                    alt="Avatar" 
+                    onError={(e) => { (e.target as HTMLImageElement).src = getAvatarFallback(null, profile?.display_name || 'user'); }}
+                  />
+                  {/* Overlay de Edição */}
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/avatar:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
+                    <Edit3 size={20} className="text-white" />
+                    <span className="text-[10px] font-black uppercase tracking-tighter">Mudar</span>
+                  </div>
+                </motion.button>
+
+                {/* Badge/Selo Flutuante */}
+                <motion.button
+                  whileHover={{ scale: 1.1, rotate: 5 }}
+                  onClick={() => setShowBadgeModal(true)}
+                  className="absolute -bottom-2 -right-2 w-14 h-14 bg-[#111] border-4 border-[#0a0a0a] rounded-2xl flex items-center justify-center z-20 shadow-xl overflow-hidden group/badge"
+                >
                   {badgeObj ? (
                     <>
                       {badgeObj.glow && (
-                        <motion.div 
-                          animate={{ scale: [1, 1.1, 1], opacity: [0.5, 0.8, 0.5] }}
-                          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                          className="absolute inset-0 rounded-full blur-xl pointer-events-none" 
-                          style={{ background: `radial-gradient(circle, ${badgeObj.glow} 0%, transparent 70%)` }}
-                        />
+                        <div className="absolute inset-0 blur-md opacity-50" style={{ background: badgeObj.glow }} />
                       )}
-                      <img src={badgeObj.image} className="w-24 h-24 object-contain relative z-20 drop-shadow-2xl" alt="Selo" />
+                      <img src={badgeObj.image} className="w-8 h-8 object-contain relative z-10" alt="Selo" />
                     </>
                   ) : (
-                    <User size={48} className="text-gray-600" />
+                    <Star size={20} className="text-gray-600" />
                   )}
-                </div>
+                  <div className="absolute inset-0 bg-yellow-500/20 opacity-0 group-hover/badge:opacity-100 transition-opacity" />
+                </motion.button>
+
                 {profile?.is_pro && (
-                  <motion.div 
-                    initial={{ scale: 0 }} animate={{ scale: 1 }}
-                    className="absolute -bottom-2 -right-2 bg-gradient-to-r from-yellow-400 to-yellow-600 text-black p-2 rounded-full border-4 border-[#0a0a0a] z-30 shadow-lg"
-                  >
-                    <Crown size={20} className="fill-black" />
-                  </motion.div>
+                  <div className="absolute -top-2 -left-2 bg-gradient-to-r from-yellow-400 to-yellow-600 text-black p-1.5 rounded-lg border-2 border-[#0a0a0a] z-30 shadow-lg">
+                    <Crown size={14} className="fill-black" />
+                  </div>
                 )}
               </div>
 
               {/* Informações do Usuário */}
               <div className="flex-1 text-center sm:text-left">
-                <h1 className="text-3xl font-black mb-2 flex items-center justify-center sm:justify-start gap-3">
-                  {profile?.display_name || 'Artista Criativo'}
-                </h1>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+                  <h1 className="text-4xl font-black tracking-tighter">
+                    {profile?.display_name || 'Artista Criativo'}
+                  </h1>
+                  <div className={`inline-flex px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${profile?.is_pro ? 'bg-yellow-500/10 text-yellow-500' : 'bg-gray-800 text-gray-500'}`}>
+                    {profile?.is_pro ? 'PRO' : 'FREE'}
+                  </div>
+                </div>
                 
-                <p className={`text-sm font-bold uppercase tracking-widest mb-6 ${profile?.is_pro ? 'text-yellow-500' : 'text-gray-500'}`}>
-                  {profile?.is_pro ? 'Membro PRO ✨' : 'Conta Gratuita'}
+                <p className="text-gray-400 text-sm font-medium mb-6">
+                  Apaixonado por pixel art e design digital.
                 </p>
 
-                <div className="flex flex-wrap gap-3 justify-center sm:justify-start">
-                  <div className="px-4 py-2 bg-[#111] border border-[#333] rounded-xl text-sm font-bold flex items-center gap-2">
-                    <Star size={16} className="text-green-500" />
-                    Nível {profile?.experience_level || 1}
+                {/* Stats Row */}
+                <div className="flex gap-8 justify-center sm:justify-start mb-6">
+                  <div className="text-center sm:text-left">
+                    <div className="text-xl font-black text-white">{stats.followers}</div>
+                    <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1">
+                      <Users size={10} /> Seguidores
+                    </div>
                   </div>
-                  {profile?.is_admin && (
-                    <button onClick={() => navigate('/admin')} className="px-4 py-2 bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors">
-                      <Shield size={16} /> Painel Admin
-                    </button>
-                  )}
+                  <div className="text-center sm:text-left">
+                    <div className="text-xl font-black text-white">{stats.following}</div>
+                    <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1">
+                      <Users size={10} /> Seguindo
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-3 justify-center sm:justify-start">
+                  <div className="px-4 py-2 bg-[#111] border border-[#222] rounded-xl text-xs font-black flex items-center gap-2 text-green-500">
+                    <Star size={14} /> NÍVEL {profile?.experience_level || 1}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Card Lateral - Assinatura PRO */}
-          <div className="bg-[#0a0a0a] border border-[#222] rounded-3xl p-6 flex flex-col items-center justify-center text-center relative overflow-hidden group">
+          <div className="bg-[#0a0a0a] border border-[#222] rounded-[2.5rem] p-8 flex flex-col items-center justify-center text-center relative overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/5 to-orange-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
             
             {!profile?.is_pro ? (
               <>
-                <div className="w-16 h-16 rounded-full bg-yellow-500/10 flex items-center justify-center mb-4">
+                <div className="w-16 h-16 rounded-3xl bg-yellow-500/10 flex items-center justify-center mb-6 rotate-3 group-hover:rotate-6 transition-transform">
                   <Crown size={32} className="text-yellow-500" />
                 </div>
-                <h3 className="font-black text-xl mb-2">Seja um Artista PRO</h3>
-                <p className="text-xs text-gray-400 mb-6 font-medium">
-                  Desbloqueie ferramentas avançadas, selos brilhantes e remova todas as limitações.
+                <h3 className="font-black text-xl mb-2">Upgrade PRO</h3>
+                <p className="text-xs text-gray-400 mb-8 font-medium">
+                  Desbloqueie ferramentas, selos brilhantes e remova todas as limitações.
                 </p>
                 <button 
                   onClick={() => setShowProModal(true)}
-                  className="w-full py-4 bg-gradient-to-r from-yellow-400 to-yellow-600 hover:from-yellow-300 hover:to-yellow-500 text-black font-black uppercase text-xs tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(234,179,8,0.2)] hover:shadow-[0_0_30px_rgba(234,179,8,0.4)] hover:scale-105 active:scale-95"
+                  className="w-full py-4 bg-gradient-to-r from-yellow-400 to-yellow-600 hover:from-yellow-300 hover:to-yellow-500 text-black font-black uppercase text-xs tracking-widest rounded-2xl transition-all shadow-[0_0_20px_rgba(234,179,8,0.2)] hover:scale-105 active:scale-95"
                 >
-                  Conhecer Benefícios
+                  Ver Planos
                 </button>
               </>
             ) : (
               <>
-                <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mb-4">
+                <div className="w-16 h-16 rounded-3xl bg-green-500/10 flex items-center justify-center mb-6">
                   <CheckCircle2 size={32} className="text-green-500" />
                 </div>
                 <h3 className="font-black text-xl mb-2 text-green-400">Assinatura Ativa</h3>
                 <p className="text-xs text-gray-400 font-medium">
-                  Você já possui acesso a todas as funcionalidades profissionais do Dragon Art.
+                  Você é um artista lendário com acesso total.
                 </p>
               </>
             )}
           </div>
 
           {/* Grid de Funcionalidades */}
-          <div className="md:col-span-3 bg-[#0a0a0a] border border-[#222] rounded-3xl p-8">
-            <h3 className="font-black text-xl mb-6 uppercase tracking-widest text-gray-300">Meu Estúdio</h3>
+          <div className="md:col-span-3 bg-[#0a0a0a] border border-[#222] rounded-[2.5rem] p-8">
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="font-black text-xl uppercase tracking-widest text-white flex items-center gap-3">
+                Meu Estúdio <Layers size={20} className="text-green-500" />
+              </h3>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {proFeaturesList.map((feat, idx) => {
                 const isLocked = !profile?.is_pro;
                 return (
-                  <div key={idx} className={`p-5 rounded-2xl border transition-all ${isLocked ? 'bg-[#111]/50 border-[#222] grayscale opacity-70' : 'bg-[#111] border-[#333] hover:border-green-500/50'}`}>
-                    <div className="flex items-center justify-between mb-3">
-                      <div className={`p-2 rounded-lg ${isLocked ? 'bg-[#222] text-gray-500' : 'bg-green-500/10 text-green-400'}`}>
+                  <div key={idx} className={`p-6 rounded-[2rem] border transition-all ${isLocked ? 'bg-[#0d0d0d] border-[#1a1a1a] opacity-60' : 'bg-[#111] border-[#222] hover:border-green-500/30 group/feat'}`}>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className={`p-3 rounded-2xl ${isLocked ? 'bg-[#151515] text-gray-600' : 'bg-green-500/10 text-green-400 group-hover/feat:scale-110 transition-transform'}`}>
                         {feat.icon}
                       </div>
-                      {isLocked && <Lock size={16} className="text-gray-600" />}
+                      {isLocked && <Lock size={14} className="text-gray-700" />}
                     </div>
-                    <h4 className="font-bold text-sm mb-1">{feat.title}</h4>
-                    <p className="text-xs text-gray-500">{feat.desc}</p>
+                    <h4 className="font-black text-sm mb-1 uppercase tracking-tighter">{feat.title}</h4>
+                    <p className="text-[11px] text-gray-500 font-medium leading-relaxed">{feat.desc}</p>
                   </div>
                 );
               })}
             </div>
             
             {/* Opções de Conta */}
-            <div className="mt-8 pt-8 border-t border-[#222] flex justify-end">
-              <button onClick={handleSignOut} className="px-6 py-3 bg-[#111] hover:bg-red-500/10 text-gray-400 hover:text-red-500 border border-[#222] hover:border-red-500/30 font-bold uppercase tracking-widest text-xs rounded-xl transition-all flex items-center gap-2">
-                <LogOut size={16} /> Desconectar
+            <div className="mt-12 pt-8 border-t border-[#222] flex flex-col sm:flex-row items-center justify-between gap-4">
+              <p className="text-[10px] text-gray-600 font-bold uppercase tracking-[0.2em]">
+                Dragon Art Studio &copy; 2026 - Todos os direitos reservados
+              </p>
+              <button onClick={handleSignOut} className="px-8 py-3 bg-[#111] hover:bg-red-500/10 text-gray-400 hover:text-red-500 border border-[#222] hover:border-red-500/30 font-black uppercase tracking-widest text-[10px] rounded-xl transition-all flex items-center gap-2">
+                <LogOut size={14} /> Sair da Conta
               </button>
             </div>
           </div>
@@ -189,57 +273,79 @@ export default function Profile() {
         </div>
       </div>
 
+      {/* MODALS */}
+      <AvatarSelectionModal 
+        isOpen={showAvatarModal}
+        onClose={() => setShowAvatarModal(false)}
+        currentAvatar={profile?.avatar_url}
+        onSelect={(avatar) => {
+          handleUpdateProfile({ avatar_url: avatar });
+          setShowAvatarModal(false);
+        }}
+      />
+
+      <BadgeSelectionModal 
+        isOpen={showBadgeModal}
+        onClose={() => setShowBadgeModal(false)}
+        currentBadge={profile?.badge}
+        isPro={profile?.is_pro}
+        onSelect={(badgeId) => {
+          handleUpdateProfile({ badge: badgeId });
+          setShowBadgeModal(false);
+        }}
+      />
+
       {/* MODAL PRO */}
       <AnimatePresence>
         {showProModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md overflow-y-auto">
             <motion.div 
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-[#0a0a0a] border border-[#333] rounded-3xl max-w-2xl w-full relative shadow-2xl overflow-hidden my-8"
+              className="bg-[#0a0a0a] border border-[#333] rounded-[3rem] max-w-2xl w-full relative shadow-2xl overflow-hidden my-8"
             >
               {/* Header do Modal */}
-              <div className="bg-gradient-to-r from-yellow-900/40 via-yellow-600/20 to-orange-900/40 p-8 text-center relative">
-                <button onClick={() => setShowProModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white bg-black/20 p-2 rounded-full">
-                  ✕
+              <div className="bg-gradient-to-r from-yellow-900/40 via-yellow-600/20 to-orange-900/40 p-10 text-center relative border-b border-[#222]">
+                <button onClick={() => setShowProModal(false)} className="absolute top-6 right-6 text-gray-400 hover:text-white bg-black/40 p-2 rounded-full transition-colors">
+                  <X size={20} />
                 </button>
-                <div className="w-20 h-20 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full mx-auto mb-4 flex items-center justify-center shadow-[0_0_30px_rgba(234,179,8,0.5)]">
-                  <Crown size={40} className="text-black" />
+                <div className="w-24 h-24 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-3xl mx-auto mb-6 flex items-center justify-center shadow-[0_0_50px_rgba(234,179,8,0.3)] rotate-6">
+                  <Crown size={48} className="text-black" />
                 </div>
-                <h2 className="text-3xl font-black text-white mb-2">Dragon Art <span className="text-yellow-500">PRO</span></h2>
-                <p className="text-yellow-200/80 font-medium">Eleve sua arte pixelada para o próximo nível.</p>
+                <h2 className="text-4xl font-black text-white mb-2 uppercase tracking-tighter">Dragon Art <span className="text-yellow-500">PRO</span></h2>
+                <p className="text-yellow-200/60 font-bold uppercase tracking-widest text-[10px]">Domine a arte do pixel</p>
               </div>
 
               {/* Lista de Benefícios */}
-              <div className="p-8">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+              <div className="p-10">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-10">
                   {proFeaturesList.map((feat, idx) => (
-                    <div key={idx} className="flex gap-4 items-start">
-                      <div className="p-2 bg-yellow-500/10 text-yellow-500 rounded-xl mt-1">
+                    <div key={idx} className="flex gap-5 items-start">
+                      <div className="p-3 bg-yellow-500/10 text-yellow-500 rounded-2xl mt-1">
                         {feat.icon}
                       </div>
                       <div>
-                        <h4 className="font-bold text-white mb-1">{feat.title}</h4>
-                        <p className="text-sm text-gray-400">{feat.desc}</p>
+                        <h4 className="font-black text-white mb-1 uppercase tracking-tighter">{feat.title}</h4>
+                        <p className="text-xs text-gray-500 font-medium leading-relaxed">{feat.desc}</p>
                       </div>
                     </div>
                   ))}
                 </div>
 
                 {/* Botão de Assinatura */}
-                <div className="bg-[#111] rounded-2xl p-6 border border-[#222] text-center">
-                  <div className="text-sm text-gray-400 mb-4 uppercase tracking-widest font-bold">Assinatura Mensal via Stripe</div>
+                <div className="bg-[#0d0d0d] rounded-[2rem] p-8 border border-[#222] text-center">
+                  <div className="text-[10px] text-gray-500 mb-6 uppercase tracking-[0.3em] font-black">Pagamento Seguro via Stripe</div>
                   <button 
                     onClick={() => {
                       window.open(CONFIG.STRIPE_PRO_LINK, '_blank');
                       setShowProModal(false);
                     }}
-                    className="w-full sm:w-auto px-10 py-4 bg-gradient-to-r from-yellow-400 to-yellow-600 hover:brightness-110 text-black font-black uppercase tracking-widest rounded-xl transition-all shadow-[0_0_30px_rgba(234,179,8,0.3)] hover:scale-105"
+                    className="w-full py-5 bg-gradient-to-r from-yellow-400 to-yellow-600 hover:brightness-110 text-black font-black uppercase tracking-[0.2em] text-xs rounded-2xl transition-all shadow-[0_0_40px_rgba(234,179,8,0.2)] hover:scale-[1.02]"
                   >
-                    Desbloquear Acesso PRO
+                    Ativar Dragon Art PRO
                   </button>
-                  <p className="text-xs text-gray-500 mt-4">Cancele quando quiser. Pagamento 100% seguro.</p>
+                  <p className="text-[10px] text-gray-600 mt-6 font-bold uppercase">Cancele quando quiser &bull; Suporte 24/7</p>
                 </div>
               </div>
             </motion.div>
