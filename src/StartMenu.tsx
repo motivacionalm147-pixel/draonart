@@ -961,9 +961,18 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
     }
   };
 
-  const handleViewUserProfile = async (userId: string, currentPostProfile: any) => {
+  const handleViewUserProfile = async (userId: string, _currentPostProfile: any) => {
     if (!session) return;
     try {
+      // 0. Always fetch the FRESH profile from the database (source of truth)
+      const { data: freshProfile } = await supabase
+        .from('profiles')
+        .select('id, display_name, avatar_url, badge, is_pro, experience_level')
+        .eq('id', userId)
+        .maybeSingle();
+
+      const profileData = freshProfile || _currentPostProfile || {};
+
       // 1. Fetch user stats
       const { count: postsCount } = await supabase.from('posts').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('is_private', false);
       const { count: followersCount } = await supabase.from('followers').select('*', { count: 'exact', head: true }).eq('following_id', userId);
@@ -985,10 +994,10 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
         ? await supabase.from('profiles').select('id, display_name, avatar_url, badge, is_pro').in('id', followerIds)
         : { data: [] };
 
-      const isFounder = currentPostProfile?.display_name?.toLowerCase() === 'kelvin' || currentPostProfile?.display_name === profileName;
+      const isFounder = profileData?.display_name?.toLowerCase() === 'kelvin' || profileData?.id === '41066d58-7c5e-49b5-9009-b1dfd11b72f3';
 
       setViewingUser({
-        ...currentPostProfile,
+        ...profileData,
         id: userId,
         postsCount: postsCount || 0,
         isFounder: isFounder
@@ -2129,11 +2138,21 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                 </div>
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {communityPosts.map((post) => {
+                    {communityPosts.map((rawPost) => {
+                      // Normalize profiles: Supabase joins can return an array or object
+                      const postProfile = Array.isArray(rawPost.profiles) ? rawPost.profiles[0] : rawPost.profiles;
+                      const post = { ...rawPost, profiles: postProfile };
+
                       const idMatch = post.description?.match(/\[ID:(.*)\|(.*)\]/);
                       const embeddedAvatar = idMatch ? idMatch[1] : null;
                       const embeddedName = idMatch ? idMatch[2] : null;
                       const cleanDescription = post.description?.replace(/\[ID:.*\]/, '').trim();
+
+                      // Source of truth: DB profile > embedded > fallback
+                      const postDisplayName = post.profiles?.display_name || embeddedName || 'Anônimo';
+                      const postAvatarUrl = post.profiles?.avatar_url || embeddedAvatar || null;
+                      const postBadge = post.profiles?.badge;
+                      const postIsPro = post.profiles?.is_pro;
                       
                       return (
                         <motion.div 
@@ -2187,26 +2206,23 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                       <div className="p-4 border-t border-white/5">
                         <div className="flex items-center gap-3 mb-3">
                           <button 
-                            onClick={() => post.profiles?.id && handleViewUserProfile(post.profiles.id, post.profiles)}
+                            onClick={() => handleViewUserProfile(post.user_id, post.profiles)}
                             className="w-10 h-10 rounded-full overflow-hidden bg-white/5 shrink-0 border-2 border-white/10 hover:border-[var(--accent-color)] transition-colors"
                           >
                             <div className="relative w-full h-full">
                               <img 
                                 src={post.user_id === session?.user?.id 
                                   ? getAvatarFallback(profileImage, profileName)
-                                  : getAvatarFallback(
-                                      (Array.isArray(post.profiles) ? post.profiles[0]?.avatar_url : post.profiles?.avatar_url) || embeddedAvatar, 
-                                      (Array.isArray(post.profiles) ? post.profiles[0]?.display_name : post.profiles?.display_name) || embeddedName || post.user_id
-                                    )} 
+                                  : getAvatarFallback(postAvatarUrl, postDisplayName)} 
                                 className="w-full h-full object-cover" 
                                 alt="Avatar" 
-                                onError={(e) => { (e.target as HTMLImageElement).src = getAvatarFallback(null, embeddedName || post.user_id); }}
+                                onError={(e) => { (e.target as HTMLImageElement).src = getAvatarFallback(null, postDisplayName); }}
                               />
                               {/* Badge overlay on avatar corner */}
-                              {(post.user_id === session?.user?.id ? selectedBadge : (Array.isArray(post.profiles) ? post.profiles[0]?.badge : post.profiles?.badge)) && (
+                              {(post.user_id === session?.user?.id ? selectedBadge : postBadge) && (
                                 <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-[var(--bg-app)] flex items-center justify-center shadow-lg z-10 border border-white/10">
                                   <img 
-                                    src={badges.find(b => b.id === (post.user_id === session?.user?.id ? selectedBadge : (Array.isArray(post.profiles) ? post.profiles[0]?.badge : post.profiles?.badge)))?.image || '/badges/free_1.png'} 
+                                    src={badges.find(b => b.id === (post.user_id === session?.user?.id ? selectedBadge : postBadge))?.image || '/badges/free_1.png'} 
                                     className="w-2.5 h-2.5 object-contain" 
                                     alt="Selo" 
                                   />
@@ -2217,23 +2233,20 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <h4 className="font-bold text-sm text-white truncate">{post.title}</h4>
-                              {((Array.isArray(post.profiles) ? post.profiles[0]?.display_name : post.profiles?.display_name)?.toLowerCase() === 'kelvin' || (Array.isArray(post.profiles) ? post.profiles[0]?.id : post.profiles?.id) === '41066d58-7c5e-49b5-9009-b1dfd11b72f3') && (
+                              {(postDisplayName?.toLowerCase() === 'kelvin' || post.profiles?.id === '41066d58-7c5e-49b5-9009-b1dfd11b72f3') && (
                                 <span className="px-1.5 py-0.5 bg-gradient-to-r from-yellow-500 to-amber-600 text-black text-[8px] font-black rounded-sm shadow-[0_0_10px_rgba(245,158,11,0.3)] animate-pulse">
                                   FUNDADOR
                                 </span>
                               )}
                             </div>
                             <button 
-                              onClick={() => {
-                                const p = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
-                                if (p?.id) handleViewUserProfile(p.id, p);
-                              }}
+                              onClick={() => handleViewUserProfile(post.user_id, post.profiles)}
                               className="flex items-center gap-1 overflow-hidden hover:opacity-80 transition-opacity text-left active:scale-95"
                             >
                               <span className="text-xs text-[var(--accent-color)] font-bold truncate">
-                                @{(post.user_id === session?.user?.id ? profileName : null) || (Array.isArray(post.profiles) ? post.profiles[0]?.display_name : post.profiles?.display_name) || embeddedName || 'Anônimo'}
+                                @{post.user_id === session?.user?.id ? profileName : postDisplayName}
                               </span>
-                              {(post.user_id === session?.user?.id ? isPro : (Array.isArray(post.profiles) ? post.profiles[0]?.is_pro : post.profiles?.is_pro)) && <Star size={10} className="text-yellow-400 fill-yellow-400" />}
+                              {(post.user_id === session?.user?.id ? isPro : postIsPro) && <Star size={10} className="text-yellow-400 fill-yellow-400" />}
                             </button>
                           </div>
                         </div>
