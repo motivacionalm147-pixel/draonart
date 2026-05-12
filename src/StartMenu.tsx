@@ -775,7 +775,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
         .select(`
           id, title, description, is_private, image_url, likes, created_at, user_id,
           profiles (id, display_name, experience_level, is_pro, badge, avatar_url),
-          comments (id, content, profiles (display_name))
+          comments (id, content, user_id, profiles (display_name, avatar_url))
         `)
         .order('created_at', { ascending: false })
         .limit(30);
@@ -942,7 +942,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
         .insert({
           user_id: session.user.id,
           title: publishTitle,
-          description: `${publishDescription}\n\n[ID:${profileImage || ''}|${profileName}]`,
+          description: publishDescription.trim() || null,
           is_private: publishIsPrivate,
           image_url: publicUrl
         });
@@ -2164,7 +2164,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                         >
                           <div 
                             className="aspect-square bg-black/20 flex items-center justify-center p-4 relative cursor-pointer group/image"
-                            onClick={() => setZoomedPost({...post, description: cleanDescription, _embeddedName: embeddedName})}
+                            onClick={() => setZoomedPost({...post, description: cleanDescription, _postDisplayName: postDisplayName})}
                           >
                             <img 
                               src={post.image_url} 
@@ -2698,11 +2698,11 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                         {viewingUserPosts.map(post => (
                           <div key={post.id} className="bg-[var(--bg-panel)] rounded-2xl border border-white/5 overflow-hidden group">
                             <div className="aspect-square bg-black/20 flex items-center justify-center p-2 cursor-pointer" onClick={() => {
-                              const idMatch = post.description?.match(/\[ID:(.*)\|(.*)\]/);
                               setZoomedPost({
                                 ...post, 
+                                profiles: { display_name: viewingUser.display_name, avatar_url: viewingUser.avatar_url, badge: viewingUser.badge, is_pro: viewingUser.is_pro },
                                 description: post.description?.replace(/\[ID:.*\]/, '').trim(),
-                                _embeddedName: idMatch ? idMatch[2] : null
+                                _postDisplayName: viewingUser.display_name || 'Anônimo'
                               });
                             }}>
                               <img src={post.image_url} alt={post.title} className="max-w-full max-h-full object-contain image-pixelated group-hover:scale-105 transition-transform" />
@@ -2794,7 +2794,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
               {/* Marca D'agua com nome do desenhista */}
               <div className="absolute bottom-3 right-3 bg-black/35 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/5 pointer-events-none shadow-lg">
                 <span className="text-white/50 text-[10px] font-bold tracking-wider flex items-center gap-1.5">
-                  DragonArt · @{zoomedPost._embeddedName || zoomedPost.profiles?.display_name || 'Anônimo'}
+                  DragonArt · @{zoomedPost.profiles?.display_name || zoomedPost._postDisplayName || 'Anônimo'}
                 </span>
               </div>
             </motion.div>
