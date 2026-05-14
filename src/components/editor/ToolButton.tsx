@@ -66,18 +66,11 @@ export const ToolButton: React.FC<ToolButtonProps> = ({
     if (onPointerUp) onPointerUp(e);
   }, [clearTimer, hide, onPointerUp]);
 
-  const btnSize = 'calc(44px * var(--ui-scale))';
+  const btnSize = 'calc(54px * var(--ui-scale))';
 
   return (
     <div className="flex flex-col items-center gap-0.5 flex-shrink-0 relative" style={{ width: btnSize }}>
-      {active && label && (
-        <div className="active-label-container pointer-events-none z-[100] animate-in fade-in duration-200">
-          <div className="bg-[var(--accent-color)] text-white text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded shadow-lg whitespace-nowrap">
-            {label}
-          </div>
-          <div className="active-label-arrow" />
-        </div>
-      )}
+
       <button 
         ref={btnRef}
         onClick={(e) => { sound.playClick(); if (onClick) onClick(e); }}
@@ -86,18 +79,23 @@ export const ToolButton: React.FC<ToolButtonProps> = ({
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerLeave}
         onPointerCancel={handlePointerLeave}
-        className={`pixel-icon-btn ${active ? 'active' : ''} relative`}
+        className={`flex flex-col items-center justify-center gap-1 rounded-xl transition-all duration-200 ${active ? 'bg-[var(--accent-color)]/20 border border-[var(--accent-color)]/50 shadow-[0_0_15px_rgba(var(--accent-color-rgb),0.2)] text-[var(--accent-color)] scale-105' : 'hover:bg-white/5 border border-transparent text-[var(--text-secondary)]'} relative`}
         style={{ 
-          width: btnSize, 
-          height: btnSize,
-          minWidth: btnSize,
-          minHeight: btnSize
+          width: 'calc(54px * var(--ui-scale))', 
+          height: 'calc(54px * var(--ui-scale))',
+          minWidth: 'calc(54px * var(--ui-scale))',
+          minHeight: 'calc(54px * var(--ui-scale))'
         }}
       >
-        <div style={{ transform: 'scale(var(--ui-scale))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ transform: 'scale(var(--ui-scale))', display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="mt-0.5">
           {icon}
         </div>
-        {color && <div className="absolute bottom-0.5 right-0.5 w-2.5 h-2.5 border-2 border-[#000]" style={{ backgroundColor: color }} />}
+        {label && (
+          <span className="text-[8px] md:text-[9px] font-black uppercase tracking-tight text-center truncate w-full px-1 opacity-90">
+            {label}
+          </span>
+        )}
+        {color && <div className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full border-2 border-[#000]" style={{ backgroundColor: color }} />}
         {shortcutKey && (
           <div className="absolute top-0 right-0 -mt-1 -mr-1 bg-[var(--bg-surface)] text-[var(--text-primary)] text-[8px] font-bold px-0.5 rounded-sm border border-[var(--border-strong)] z-20 shadow-sm pointer-events-none uppercase hidden lg:block">
             {shortcutKey}

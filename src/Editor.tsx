@@ -72,6 +72,7 @@ import {
   Compass,
   FolderHeart,
   Trash,
+  RotateCw,
 } from "lucide-react";
 import { CONFIG } from './config';
 import {
@@ -94,6 +95,8 @@ import { videoStorage, SavedVideo } from "./services/videoStorage";
 import { generateId } from "./utils";
 import { PaletteManager } from "./components/editor/PaletteManager";
 import { EffectsPanel } from "./components/editor/EffectsPanel";
+import OnboardingTutorial from "./components/OnboardingTutorial";
+
 
 // New Imports
 import {
@@ -209,6 +212,7 @@ interface SelectionState {
   data: string[];
   originalW: number;
   originalH: number;
+  angle?: number;
 }
 
 export default function Editor({
@@ -265,6 +269,10 @@ export default function Editor({
   const [currentTool, setCurrentTool] = useState<Tool>("pencil");
   const [currentShape, setCurrentShape] = useState<ShapeType>("line");
   const [brushSize, setBrushSize] = useState(1);
+  const [eraserSize, setEraserSize] = useState(1);
+  const [perfectStrokeEnabled, setPerfectStrokeEnabled] = useState(() => {
+    return localStorage.getItem("pixel_perfect_stroke") === "true";
+  });
   const [pixelPerfect, setPixelPerfect] = useState(false);
   const [precisionMode, setPrecisionMode] = useState(false);
   const [uiVisible, setUiVisible] = useState(true);
@@ -541,6 +549,10 @@ export default function Editor({
     localStorage.setItem("pixel_bg_brightness", String(bgBrightness));
   }, [bgBrightness]);
 
+  useEffect(() => {
+    localStorage.setItem("pixel_perfect_stroke", String(perfectStrokeEnabled));
+  }, [perfectStrokeEnabled]);
+
   const [showCanvasBorder, setShowCanvasBorder] = useState<boolean>(() => {
     return localStorage.getItem("pixel_show_canvas_border") !== "false";
   });
@@ -644,10 +656,21 @@ export default function Editor({
 
   // Hint toast that appears when entering the editor
   const [showEditorHint, setShowEditorHint] = useState(true);
+  const [isTutorialOpen, setIsTutorialOpen] = useState(false);
+
+  useEffect(() => {
+    const completed = localStorage.getItem('dragonart_tutorial_editor_completed');
+    if (!completed) {
+      const timer = setTimeout(() => setIsTutorialOpen(true), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
   useEffect(() => {
     const timer = setTimeout(() => setShowEditorHint(false), 6000);
     return () => clearTimeout(timer);
   }, []);
+
   const [showFloatingToolSwitcher, setShowFloatingToolSwitcher] =
     useState(false);
   const [floatingToolSwitcherPos, setFloatingToolSwitcherPos] = useState({
@@ -660,13 +683,13 @@ export default function Editor({
 
   const [selection, setSelection] = useState<SelectionState | null>(null);
   const [selectionAction, setSelectionAction] = useState<
-    "create" | "move" | "scale" | null
+    "create" | "move" | "scale" | "rotate" | null
   >(null);
   const [selectionStart, setSelectionStart] = useState<{
     x: number;
     y: number;
   } | null>(null);
-  const selectionActionRef = useRef<"create" | "move" | "scale" | null>(null);
+  const selectionActionRef = useRef<"create" | "move" | "scale" | "rotate" | null>(null);
   const [selectType, setSelectType] = useState<"rect" | "magic-wand" | "lasso">(
     "magic-wand"
   );
@@ -2018,10 +2041,10 @@ export default function Editor({
   // History stores the layers and texts of the current frame
 
   const isDrawing = useRef(false);
+  const strokePixels = useRef<{ x: number; y: number }[]>([]);
   const lastPos = useRef<{ x: number; y: number } | null>(null);
   const startPos = useRef<{ x: number; y: number } | null>(null);
   const strokeStartData = useRef<string[] | null>(null);
-  const strokePixels = useRef<{ x: number; y: number }[]>([]);
 
   // clearCurrentLayer
   const clearCurrentLayer = () => {
@@ -3018,6 +3041,65 @@ export default function Editor({
     return newData;
   };
 
+  const rotateSelectionData = (
+    data: string[],
+    w: number,
+    h: number,
+    angle: number
+  ) => {
+    let newW = w;
+    let newH = h;
+    const newData = new Array(w * h).fill("");
+    
+    if (angle === 90) {
+      newW = h;
+      newH = w;
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          newData[x * newW + (newW - 1 - y)] = data[y * w + x];
+        }
+      }
+    } else if (angle === 180) {
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          newData[(h - 1 - y) * w + (w - 1 - x)] = data[y * w + x];
+        }
+      }
+    } else if (angle === 270 || angle === -90) {
+      newW = h;
+      newH = w;
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          newData[(newH - 1 - x) * newW + y] = data[y * w + x];
+        }
+      }
+    }
+    
+    return { data: newData, w: newW, h: newH };
+  };
+
+  const handleRotateSelection = () => {
+    if (!selection) return;
+    sound.playClick();
+    const { data, w, h } = rotateSelectionData(selection.data, selection.w, selection.h, 90);
+    
+    const cx = selection.x + selection.w / 2;
+    const cy = selection.y + selection.h / 2;
+    const newX = Math.round(cx - w / 2);
+    const newY = Math.round(cy - h / 2);
+
+    setSelection({
+      ...selection,
+      data,
+      w,
+      h,
+      originalW: w,
+      originalH: h,
+      x: newX,
+      y: newY,
+    });
+  };
+
   const commitSelection = useCallback(() => {
     if (!selection) return;
     const layer = frames[currentFrame].layers[currentLayer];
@@ -3034,14 +3116,69 @@ export default function Editor({
       selection.h
     );
 
-    for (let sy = 0; sy < selection.h; sy++) {
-      for (let sx = 0; sx < selection.w; sx++) {
-        const color = scaledData[sy * selection.w + sx];
-        if (color) {
-          const px = selection.x + sx;
-          const py = selection.y + sy;
-          if (px >= 0 && px < width && py >= 0 && py < height) {
-            newLayerData[py * width + px] = color;
+    if (selection.angle) {
+      const rad = (selection.angle * Math.PI) / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+
+      const cx = selection.w / 2;
+      const cy = selection.h / 2;
+
+      // Find bounding box of rotated selection
+      const corners = [
+        [-cx, -cy], [cx, -cy], [-cx, cy], [cx, cy]
+      ];
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      corners.forEach(([x, y]) => {
+        const nx = x * cos - y * sin;
+        const ny = x * sin + y * cos;
+        if (nx < minX) minX = nx;
+        if (nx > maxX) maxX = nx;
+        if (ny < minY) minY = ny;
+        if (ny > maxY) maxY = ny;
+      });
+
+      const newW = Math.ceil(maxX - minX);
+      const newH = Math.ceil(maxY - minY);
+      
+      const ncx = newW / 2;
+      const ncy = newH / 2;
+
+      for (let y = 0; y < newH; y++) {
+        for (let x = 0; x < newW; x++) {
+          const dx = x - ncx;
+          const dy = y - ncy;
+
+          // un-rotate (backward mapping)
+          const rx = dx * cos + dy * sin;
+          const ry = -dx * sin + dy * cos;
+
+          const sx = Math.floor(rx + cx);
+          const sy = Math.floor(ry + cy);
+
+          if (sx >= 0 && sx < selection.w && sy >= 0 && sy < selection.h) {
+            const color = scaledData[sy * selection.w + sx];
+            if (color) {
+              const px = Math.floor(selection.x + cx - ncx + x);
+              const py = Math.floor(selection.y + cy - ncy + y);
+              
+              if (px >= 0 && px < width && py >= 0 && py < height) {
+                newLayerData[py * width + px] = color;
+              }
+            }
+          }
+        }
+      }
+    } else {
+      for (let sy = 0; sy < selection.h; sy++) {
+        for (let sx = 0; sx < selection.w; sx++) {
+          const color = scaledData[sy * selection.w + sx];
+          if (color) {
+            const px = selection.x + sx;
+            const py = selection.y + sy;
+            if (px >= 0 && px < width && py >= 0 && py < height) {
+              newLayerData[py * width + px] = color;
+            }
           }
         }
       }
@@ -3791,8 +3928,10 @@ export default function Editor({
     };
     newFrames[currentFrame] = { ...newFrames[currentFrame], layers: newLayers };
     activeStrokeFrames.current = newFrames;
+    strokePixels.current = [{ x: coords.x, y: coords.y }];
 
     let newLayerData = [...layer.data];
+    const sizeToUse = currentTool === "eraser" || currentTool === "erase-fill" ? eraserSize : brushSize;
     const colorToUse =
       currentTool === "eraser" || currentTool === "erase-fill"
         ? ""
@@ -3837,7 +3976,7 @@ export default function Editor({
         coords.x,
         coords.y,
         colorToUse,
-        brushSize,
+        sizeToUse,
         newLayerData
       );
       if (activeStrokeFrames.current) {
@@ -3857,7 +3996,7 @@ export default function Editor({
         coords.x,
         coords.y,
         colorToUse,
-        brushSize,
+        sizeToUse,
         newLayerData
       );
       if (activeStrokeFrames.current) {
@@ -3991,6 +4130,17 @@ export default function Editor({
             w,
             h,
           });
+        } else if (activeAction === "rotate" && selection && selectionStart) {
+          const unclamped = getUnclampedPixelCoords(e);
+          if (unclamped) {
+            const cx = selection.x + selection.w / 2;
+            const cy = selection.y + selection.h / 2;
+            const currentAngle = Math.atan2(unclamped.y - cy, unclamped.x - cx) * (180 / Math.PI);
+            setSelection({
+              ...selection,
+              angle: currentAngle - (selectionStart.angleOffset || 0),
+            });
+          }
         }
       } else if (selectType === "lasso" && activeAction === "create") {
         const unclamped = getUnclampedPixelCoords(e);
@@ -4026,6 +4176,7 @@ export default function Editor({
     const layer = frames[currentFrame].layers[currentLayer];
     if (!layer.visible || layer.locked) return;
 
+    const sizeToUse = currentTool === "eraser" || currentTool === "erase-fill" ? eraserSize : brushSize;
     const colorToUse =
       currentTool === "eraser" || currentTool === "erase-fill"
         ? ""
@@ -4041,7 +4192,7 @@ export default function Editor({
             coords.x,
             coords.y,
             colorToUse,
-            brushSize,
+            sizeToUse,
             [...strokeStartData.current],
             lastPos.current
           );
@@ -4055,13 +4206,16 @@ export default function Editor({
             coords.x,
             coords.y,
             colorToUse,
-            brushSize,
+            sizeToUse,
             data,
             lastPos.current
           );
           lastPos.current = coords;
         }
         drawToCanvas(activeStrokeFrames.current, currentFrame);
+        
+        // Collect points for perfect stroke analysis
+        strokePixels.current.push({ x: coords.x, y: coords.y });
       }
       
       if (Math.random() > 0.8) {
@@ -4082,7 +4236,7 @@ export default function Editor({
             coords.x,
             coords.y,
             colorToUse,
-            brushSize,
+            sizeToUse,
             [...strokeStartData.current]
           );
         } else if (currentShape === "rect") {
@@ -4092,7 +4246,7 @@ export default function Editor({
             coords.x,
             coords.y,
             colorToUse,
-            brushSize,
+            sizeToUse,
             [...strokeStartData.current]
           );
         } else if (currentShape === "circle") {
@@ -4107,7 +4261,7 @@ export default function Editor({
             startPos.current.y,
             r,
             colorToUse,
-            brushSize,
+            sizeToUse,
             [...strokeStartData.current]
           );
         } else if (currentShape === "rope") {
@@ -4123,7 +4277,7 @@ export default function Editor({
               ropeState.end!.x,
               ropeState.end!.y,
               colorToUse,
-              brushSize,
+              sizeToUse,
               [...strokeStartData.current!]
             );
           }
@@ -4269,16 +4423,205 @@ export default function Editor({
     // Commit only the current frame's current layer (not ALL frames)
     // Fill/erase-fill already committed in handlePointerDown via updateCurrentLayer
     if (activeStrokeFrames.current && currentTool !== "fill" && currentTool !== "erase-fill") {
-      const finalLayerData = activeStrokeFrames.current[currentFrame]?.layers?.[currentLayer]?.data;
+      let finalLayerData = activeStrokeFrames.current[currentFrame]?.layers?.[currentLayer]?.data;
+
+      // AI Perfect Stroke Analysis
+      if (perfectStrokeEnabled && currentTool === "pencil" && strokePixels.current.length > 10 && strokeStartData.current) {
+        const points = strokePixels.current;
+        const x0 = points[0].x, y0 = points[0].y;
+        const xn = points[points.length-1].x, yn = points[points.length-1].y;
+        
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        let totalPathLength = 0;
+        for (let i = 0; i < points.length; i++) {
+          const p = points[i];
+          if (p.x < minX) minX = p.x;
+          if (p.x > maxX) maxX = p.x;
+          if (p.y < minY) minY = p.y;
+          if (p.y > maxY) maxY = p.y;
+          if (i > 0) {
+            totalPathLength += Math.hypot(p.x - points[i-1].x, p.y - points[i-1].y);
+          }
+        }
+        
+        const width = maxX - minX;
+        const height = maxY - minY;
+        const distStartEnd = Math.hypot(xn - x0, yn - y0);
+        const isClosed = distStartEnd < (totalPathLength * 0.2) || distStartEnd < 8;
+
+        let bestShape = "none";
+        let lowestError = Infinity;
+        let shapeData: any = {};
+
+        // 1. Line Check
+        if (!isClosed && distStartEnd > 10) {
+          let lineError = 0;
+          for (const p of points) {
+            const d = Math.abs((yn-y0)*p.x - (xn-x0)*p.y + xn*y0 - yn*x0) / distStartEnd;
+            lineError += d;
+          }
+          lineError /= points.length;
+          if (lineError < 2.0) {
+            lowestError = lineError;
+            bestShape = "line";
+          }
+        }
+
+        // 2. Circle Check
+        if (width > 5 && height > 5 && isClosed) {
+          const cx = minX + width / 2;
+          const cy = minY + height / 2;
+          const radii = points.map(p => Math.hypot(p.x - cx, p.y - cy));
+          const avgR = radii.reduce((a, b) => a + b, 0) / radii.length;
+          let circleError = 0;
+          for (const r of radii) circleError += Math.abs(r - avgR);
+          circleError /= points.length;
+          
+          const aspectError = Math.abs(width - height) / Math.max(width, height);
+          circleError += aspectError * 5; 
+
+          if (circleError < 2.5 && circleError < lowestError) {
+            lowestError = circleError;
+            bestShape = "circle";
+            shapeData = { cx, cy, r: avgR };
+          }
+        }
+
+        // 3. Rectangle Check
+        if (width > 5 && height > 5 && isClosed) {
+          let rectError = 0;
+          for (const p of points) {
+            const dLeft = Math.abs(p.x - minX);
+            const dRight = Math.abs(p.x - maxX);
+            const dTop = Math.abs(p.y - minY);
+            const dBottom = Math.abs(p.y - maxY);
+            rectError += Math.min(dLeft, dRight, dTop, dBottom);
+          }
+          rectError /= points.length;
+          
+          if (rectError < 2.5 && rectError < lowestError) {
+            lowestError = rectError;
+            bestShape = "rect";
+          }
+        }
+
+        // 4. Triangle Check
+        if (width > 5 && height > 5 && isClosed) {
+          let A = points[0];
+          let B = points[0];
+          let maxDistSq = 0;
+          for (const p of points) {
+             const distSq = (p.x - A.x)**2 + (p.y - A.y)**2;
+             if (distSq > maxDistSq) { maxDistSq = distSq; B = p; }
+          }
+          let C = points[0];
+          let maxLineDist = 0;
+          const distAB = Math.hypot(B.x - A.x, B.y - A.y);
+          if (distAB > 0) {
+             for (const p of points) {
+                const d = Math.abs((B.y - A.y)*p.x - (B.x - A.x)*p.y + B.x*A.y - B.y*A.x) / distAB;
+                if (d > maxLineDist) { maxLineDist = d; C = p; }
+             }
+          }
+          
+          const distToSegment = (p1: {x:number,y:number}, p2: {x:number,y:number}, p: {x:number,y:number}) => {
+             const l2 = (p1.x - p2.x)**2 + (p1.y - p2.y)**2;
+             if (l2 === 0) return Math.hypot(p.x - p1.x, p.y - p1.y);
+             let t = ((p.x - p1.x) * (p2.x - p1.x) + (p.y - p1.y) * (p2.y - p1.y)) / l2;
+             t = Math.max(0, Math.min(1, t));
+             return Math.hypot(p.x - (p1.x + t * (p2.x - p1.x)), p.y - (p1.y + t * (p2.y - p1.y)));
+          };
+          
+          let triangleError = 0;
+          for (const p of points) {
+             const d1 = distToSegment(A, B, p);
+             const d2 = distToSegment(B, C, p);
+             const d3 = distToSegment(C, A, p);
+             triangleError += Math.min(d1, d2, d3);
+          }
+          triangleError /= points.length;
+          
+          if (triangleError < 2.5 && triangleError < lowestError) {
+             lowestError = triangleError;
+             bestShape = "triangle";
+             shapeData = { A, B, C };
+          }
+        }
+
+        if (bestShape === "line") {
+          let finalXn = xn;
+          let finalYn = yn;
+          const angle = Math.atan2(yn - y0, xn - x0) * (180 / Math.PI);
+          const snappedAngle = Math.round(angle / 45) * 45;
+          if (Math.abs(angle - snappedAngle) < 12) {
+             const rad = snappedAngle * (Math.PI / 180);
+             finalXn = Math.round(x0 + distStartEnd * Math.cos(rad));
+             finalYn = Math.round(y0 + distStartEnd * Math.sin(rad));
+          }
+          finalLayerData = drawLine(x0, y0, finalXn, finalYn, currentColor, brushSize, [...strokeStartData.current]);
+          if (window.navigator.vibrate) window.navigator.vibrate([10, 50, 10]);
+        } else if (bestShape === "circle") {
+          const { cx, cy, r } = shapeData;
+          finalLayerData = drawCircle(Math.round(cx), Math.round(cy), Math.round(r), currentColor, brushSize, [...strokeStartData.current]);
+          if (window.navigator.vibrate) window.navigator.vibrate([10, 50, 10]);
+        } else if (bestShape === "rect") {
+          let finalMaxX = maxX;
+          let finalMaxY = maxY;
+          if (Math.abs(width - height) < Math.max(width, height) * 0.15) {
+             const size = Math.max(width, height);
+             finalMaxX = minX + size;
+             finalMaxY = minY + size;
+          }
+          let temp = drawLine(minX, minY, finalMaxX, minY, currentColor, brushSize, [...strokeStartData.current]);
+          temp = drawLine(finalMaxX, minY, finalMaxX, finalMaxY, currentColor, brushSize, temp);
+          temp = drawLine(finalMaxX, finalMaxY, minX, finalMaxY, currentColor, brushSize, temp);
+          finalLayerData = drawLine(minX, finalMaxY, minX, minY, currentColor, brushSize, temp);
+          if (window.navigator.vibrate) window.navigator.vibrate([10, 50, 10]);
+        } else if (bestShape === "triangle") {
+          const { A, B, C } = shapeData;
+          let temp = drawLine(A.x, A.y, B.x, B.y, currentColor, brushSize, [...strokeStartData.current]);
+          temp = drawLine(B.x, B.y, C.x, C.y, currentColor, brushSize, temp);
+          finalLayerData = drawLine(C.x, C.y, A.x, A.y, currentColor, brushSize, temp);
+          if (window.navigator.vibrate) window.navigator.vibrate([10, 50, 10]);
+        } else {
+          // Fallback: Smooth the freeform curve (like an 'S' shape)
+          if (points.length > 5) {
+             const smoothedPoints = [];
+             const windowSize = 4;
+             for (let i = 0; i < points.length; i++) {
+                let sumX = 0, sumY = 0, count = 0;
+                for (let j = Math.max(0, i - windowSize); j <= Math.min(points.length - 1, i + windowSize); j++) {
+                   sumX += points[j].x;
+                   sumY += points[j].y;
+                   count++;
+                }
+                smoothedPoints.push({ x: Math.round(sumX / count), y: Math.round(sumY / count) });
+             }
+             
+             // Keep exact start and end to avoid shortening
+             smoothedPoints[0] = points[0];
+             smoothedPoints[smoothedPoints.length - 1] = points[points.length - 1];
+             
+             let temp = [...strokeStartData.current];
+             for (let i = 1; i < smoothedPoints.length; i++) {
+                temp = drawLine(smoothedPoints[i-1].x, smoothedPoints[i-1].y, smoothedPoints[i].x, smoothedPoints[i].y, currentColor, brushSize, temp);
+             }
+             finalLayerData = temp;
+          }
+        }
+      }
+
       if (finalLayerData) {
         updateCurrentLayer(finalLayerData, true);
       }
     }
 
+    isDrawing.current = false;
+    activeStrokeFrames.current = null;
     lastPos.current = null;
     startPos.current = null;
     strokeStartData.current = null;
-    activeStrokeFrames.current = null;
+    strokePixels.current = [];
   };
 
   const restoreDeletedItem = (item: {
@@ -5333,8 +5676,14 @@ export default function Editor({
         uiVisible={uiVisible}
         isToolLongPress={isToolLongPress}
         uiScale={uiScale}
-        brushSize={brushSize}
-        setBrushSize={setBrushSize}
+        brushSize={currentTool === "eraser" ? eraserSize : brushSize}
+        setBrushSize={(val) => {
+          if (currentTool === "eraser") {
+            setEraserSize(val);
+          } else {
+            setBrushSize(val);
+          }
+        }}
         lightingEffect={lightingEffect}
         selectEffect={selectEffect}
         lightingIntensity={lightingIntensity}
@@ -5813,6 +6162,8 @@ export default function Editor({
                       top: `${(selection.y / height) * 100}%`,
                       width: `${(selection.w / width) * 100}%`,
                       height: `${(selection.h / height) * 100}%`,
+                      transform: `rotate(${selection.angle || 0}deg)`,
+                      transformOrigin: "center center",
                       "--lasso-color": "var(--accent-color)",
                     }
                   : selectionMask
@@ -5824,6 +6175,8 @@ export default function Editor({
                         top: `${(b.y / height) * 100}%`,
                         width: `${(b.w / width) * 100}%`,
                         height: `${(b.h / height) * 100}%`,
+                        transform: `rotate(${selection?.angle || 0}deg)`,
+                        transformOrigin: "center center",
                       };
                     })()
                   : {}) as React.CSSProperties
@@ -5873,6 +6226,36 @@ export default function Editor({
                     </div>
                   )}
 
+                  {selection && (
+                    <div
+                      className="absolute w-6 h-6 bg-[var(--accent-color)] rounded-full pointer-events-auto cursor-grab shadow-md flex items-center justify-center border-2 border-white"
+                      style={{ 
+                        top: -12 / zoom, 
+                        right: -12 / zoom,
+                        transform: `scale(${1 / zoom})`,
+                        transformOrigin: 'top right'
+                      }}
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                        setSelectionAction("rotate");
+                        selectionActionRef.current = "rotate";
+                        
+                        let offset = 0;
+                        const coords = getUnclampedPixelCoords(e);
+                        if (coords) {
+                          const cx = selection.x + selection.w / 2;
+                          const cy = selection.y + selection.h / 2;
+                          const startAngle = Math.atan2(coords.y - cy, coords.x - cx) * (180 / Math.PI);
+                          offset = startAngle - (selection.angle || 0);
+                        }
+                        
+                        setSelectionStart({ x: e.clientX, y: e.clientY, angleOffset: offset });
+                      }}
+                    >
+                      <RotateCw size={12} className="text-white" />
+                    </div>
+                  )}
+
                   <div 
                     className="absolute right-0 flex gap-1 pointer-events-auto"
                     style={{ 
@@ -5881,6 +6264,21 @@ export default function Editor({
                       transformOrigin: 'top right'
                     }}
                   >
+                    <button
+                      className="bg-black/80 backdrop-blur-md border border-white/10 text-white p-2 rounded-xl shadow-2xl hover:bg-[var(--accent-color)]/80 transition-all active:scale-90"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // Rotaciona em 90 graus absolutos incrementando o ângulo atual ou usa rotateSelectionData caso não haja rotação custom
+                        if (!selection.angle) {
+                           handleRotateSelection();
+                        } else {
+                           setSelection({ ...selection, angle: (selection.angle + 90) % 360 });
+                        }
+                      }}
+                    >
+                      <RotateCw size={16} />
+                    </button>
                     <button
                       className="bg-black/80 backdrop-blur-md border border-white/10 text-white p-2 rounded-xl shadow-2xl hover:bg-red-500/80 transition-all active:scale-90"
                       onPointerDown={(e) => e.stopPropagation()}
@@ -6573,6 +6971,17 @@ export default function Editor({
                       <span className="text-[9px] font-black uppercase">Inverter</span>
                     </button>
                     <button
+                      onClick={handleRotateSelection}
+                      disabled={!selection}
+                      className="p-3 bg-white/5 border border-white/10 rounded-xl flex items-center gap-2 hover:bg-white/10 transition-all disabled:opacity-20 col-span-2"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                        <path d="M3 3v5h5" />
+                      </svg>
+                      <span className="text-[9px] font-black uppercase flex-1 text-center">Rotacionar 90°</span>
+                    </button>
+                    <button
                       onClick={clearSelectionMask}
                       disabled={!selectionMask}
                       className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-2 hover:bg-red-500/20 transition-all disabled:opacity-20"
@@ -6865,9 +7274,9 @@ export default function Editor({
               {activePanel === "pencil" &&
                 (() => {
                   const ALL_BRUSHES = [
-                    { id: "solid-square", label: "Quadrado" },
-                    { id: "solid-circle", label: "Círculo" },
-                    { id: "soft", label: "Suave" },
+                    { id: "solid-square", label: "Pixel" },
+                    { id: "solid-circle", label: "G-Pen" },
+                    { id: "soft", label: "Nanquim" },
                     { id: "marker", label: "Marcador" },
                     { id: "spray", label: "Spray" },
                     { id: "noise", label: "Ruído" },
@@ -6911,10 +7320,10 @@ export default function Editor({
                         <div className="space-y-3">
                           <div className="flex justify-between items-end">
                             <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">
-                              Calibre
+                              {currentTool === "eraser" ? "Tamanho Borracha" : "Calibre"}
                             </span>
                             <span className="text-xl font-black text-blue-500 leading-none">
-                              {brushSize}
+                              {currentTool === "eraser" ? eraserSize : brushSize}
                               <small className="text-[10px] ml-1 opacity-50 uppercase tracking-tighter">
                                 px
                               </small>
@@ -6925,14 +7334,33 @@ export default function Editor({
                               type="range"
                               min="1"
                               max="100"
-                              value={brushSize}
-                              onChange={(e) =>
-                                setBrushSize(parseInt(e.target.value))
-                              }
+                              value={currentTool === "eraser" ? eraserSize : brushSize}
+                              onChange={(e) => {
+                                if (currentTool === "eraser") {
+                                  setEraserSize(parseInt(e.target.value));
+                                } else {
+                                  setBrushSize(parseInt(e.target.value));
+                                }
+                              }}
                               className="w-full h-1 bg-white/5 rounded-full appearance-none cursor-pointer accent-blue-500"
                             />
                           </div>
                         </div>
+
+                        {currentTool === "pencil" && (
+                          <div className="flex items-center justify-between p-4 bg-black/30 rounded-2xl border border-white/5">
+                            <div className="flex flex-col">
+                              <span className="text-xs font-bold text-white uppercase">Traço Perfeito (AI)</span>
+                              <span className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">Corrige círculos e linhas</span>
+                            </div>
+                            <button
+                              onClick={() => { sound.playClick(); setPerfectStrokeEnabled(!perfectStrokeEnabled); }}
+                              className={`w-12 h-6 rounded-full p-1 transition-all ${perfectStrokeEnabled ? 'bg-blue-500' : 'bg-gray-700'}`}
+                            >
+                              <div className={`w-4 h-4 bg-white rounded-full transition-transform duration-300 ${perfectStrokeEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
+                            </button>
+                          </div>
+                        )}
 
                         <div className="space-y-3">
                           <div className="flex justify-between items-end">
@@ -7794,14 +8222,21 @@ export default function Editor({
                 </div>
               </div>
 
-              <div className="mt-8 flex justify-end">
+              <div className="mt-8 flex flex-col gap-3">
                 <button
                   onClick={() => setShowTutorials(false)}
-                  className="px-6 py-3 bg-[var(--accent-color)] text-white font-bold rounded-xl hover:scale-105 transition-transform"
+                  className="w-full px-6 py-4 bg-[var(--accent-color)] text-white font-black rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all"
                 >
-                  Li e Entendi
+                  Entendi Tudo
+                </button>
+                <button
+                  onClick={() => { setShowTutorials(false); setIsTutorialOpen(true); }}
+                  className="w-full px-6 py-4 bg-white/5 hover:bg-white/10 text-white font-black rounded-xl transition-all flex items-center justify-center gap-2"
+                >
+                  <PlayCircle size={20} /> Assistir Tutorial do Editor
                 </button>
               </div>
+
             </motion.div>
           </motion.div>
         )}
@@ -8414,9 +8849,16 @@ export default function Editor({
           </motion.div>
         )}
       </AnimatePresence>
+
+      <OnboardingTutorial 
+        isOpen={isTutorialOpen} 
+        onClose={() => setIsTutorialOpen(false)} 
+        mode="editor"
+      />
     </div>
   );
 }
+
 
 // Helper Components
 const ToolButton = ({

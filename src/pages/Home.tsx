@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Palette, Users, Play, MonitorSmartphone } from 'lucide-react';
+import { Palette, Users, Play, MonitorSmartphone, Star, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
@@ -34,7 +34,7 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white font-sans overflow-hidden relative selection:bg-[var(--accent-color)] selection:text-white">
+    <div className="min-h-screen bg-[#050505] text-white font-sans relative selection:bg-[var(--accent-color)] selection:text-white">
       
       {/* Dynamic Animated Background */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none flex justify-center items-center">
@@ -110,7 +110,7 @@ export default function Home() {
       </header>
 
       {/* Hero Content */}
-      <main className="relative z-10 max-w-7xl mx-auto px-6 pt-40 min-h-screen flex flex-col items-center justify-center text-center">
+      <main className="relative z-10 max-w-7xl mx-auto px-6 pt-40 pb-20 flex flex-col items-center justify-center text-center">
         
         {/* Floating App Logo Main */}
         <motion.div
@@ -173,6 +173,78 @@ export default function Home() {
         
       </main>
 
+      {/* Testimonials Section */}
+      <section className="relative z-10 py-12 bg-transparent">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              {
+                name: "Lucas 'PixelMaster' Silva",
+                role: "Ilustrador Freelancer",
+                text: "Mano, o Perfect Stroke é bizarro! Eu sempre sofri com traço tremido no tablet, mas com a IA do Dragon Art parece que o desenho flui sozinho. O melhor app de pixel art que já usei.",
+                stars: 5,
+                verified: true,
+                color: "from-blue-500 to-cyan-500"
+              },
+              {
+                name: "Beatriz Oliveira",
+                role: "Game Designer",
+                text: "Eu precisava de uma ferramenta rápida pra fazer sprites pros meus jogos e o sistema de animação aqui é perfeito. Valeu cada centavo do PRO!",
+                stars: 5,
+                verified: true,
+                color: "from-purple-500 to-pink-500"
+              },
+              {
+                name: "Thiago 'IndieDev'",
+                role: "Desenvolvedor de Jogos",
+                text: "A qualidade da exportação é o que mais me impressionou. Consegui tirar artes em 4K sem perder um pixel de nitidez. Recomendo demais!",
+                stars: 5,
+                verified: true,
+                color: "from-green-500 to-emerald-500"
+              }
+            ].map((review, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 1, y: 0 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+                whileHover={{ y: -5 }}
+                className="bg-black/40 backdrop-blur-xl border border-white/10 p-6 rounded-[24px] relative overflow-hidden group hover:bg-white/[0.05] transition-all"
+              >
+                <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${review.color} opacity-50`} />
+                
+                <div className="flex items-center gap-3 mb-4">
+                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${review.color} flex items-center justify-center text-black font-black text-sm shadow-lg`}>
+                    {review.name.charAt(0)}
+                  </div>
+                  <div>
+                    <div className="font-black text-xs text-white flex items-center gap-2">
+                      {review.name}
+                      {review.verified && <Check size={10} className="bg-green-500 text-black rounded-full p-0.5" />}
+                    </div>
+                    <div className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">{review.role}</div>
+                  </div>
+                </div>
+
+                <p className="text-gray-300 text-xs leading-relaxed font-medium italic">
+                  "{review.text}"
+                </p>
+
+                <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
+                  <span className="text-[8px] font-black text-green-500 uppercase tracking-widest bg-green-500/10 px-1.5 py-0.5 rounded-md">Verificado</span>
+                  <div className="flex gap-0.5">
+                    {[...Array(review.stars)].map((_, i) => (
+                      <Star key={i} size={10} className="fill-yellow-500 text-yellow-500" />
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Stats/Features Banner */}
       <div className="relative z-10 w-full bg-black/60 backdrop-blur-xl border-t border-white/10 py-12 mt-20">
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
@@ -195,6 +267,29 @@ export default function Home() {
         </div>
       </div>
       
+
+      {/* Final CTA */}
+      <section className="relative z-10 py-32 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-green-500/10" />
+        <div className="max-w-4xl mx-auto px-6 text-center relative z-10">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            whileInView={{ scale: 1, opacity: 1 }}
+            viewport={{ once: true }}
+            className="p-12 rounded-[48px] bg-white/[0.02] border border-white/10 backdrop-blur-3xl"
+          >
+            <h2 className="text-4xl md:text-6xl font-black mb-6 leading-tight uppercase tracking-tighter">PRONTO PARA CRIAR SUA <span className="text-green-500">PRÓXIMA OBRA?</span></h2>
+            <p className="text-xl text-gray-400 mb-10 font-medium max-w-2xl mx-auto">Junte-se a milhares de artistas e comece a transformar seus pixels em arte profissional hoje mesmo.</p>
+            <button 
+              onClick={() => navigate('/app')}
+              className="px-12 py-6 bg-white text-black font-black text-2xl uppercase tracking-widest rounded-3xl hover:scale-105 active:scale-95 transition-all shadow-[0_0_50px_rgba(255,255,255,0.2)]"
+            >
+              CRIAR CONTA GRÁTIS
+            </button>
+          </motion.div>
+        </div>
+      </section>
+
       <style>{`
         @keyframes shimmer {
           100% { transform: translateX(100%); }

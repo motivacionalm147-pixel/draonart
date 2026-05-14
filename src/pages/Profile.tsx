@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { User, LogOut, Star, Shield, ArrowLeft, Crown, CheckCircle2, Lock, Sparkles, Layers, Palette, Image as ImageIcon, Users, Settings, Edit3, X } from 'lucide-react';
+import { User, LogOut, Star, Shield, ArrowLeft, Crown, CheckCircle2, Lock, Sparkles, Layers, Palette, Image as ImageIcon, Settings, Edit3, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CONFIG } from '../config';
 import { BADGES } from '../data/badges';
@@ -15,7 +15,6 @@ export default function Profile() {
   const [showProModal, setShowProModal] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [showBadgeModal, setShowBadgeModal] = useState(false);
-  const [stats, setStats] = useState({ followers: 0, following: 0 });
   const navigate = useNavigate();
 
   const fetchProfile = async () => {
@@ -33,17 +32,6 @@ export default function Profile() {
 
     if (!error && data) {
       setProfile(data);
-      
-      // Fetch stats
-      const [followersRes, followingRes] = await Promise.all([
-        supabase.from('followers').select('*', { count: 'exact', head: true }).eq('following_id', session.user.id),
-        supabase.from('followers').select('*', { count: 'exact', head: true }).eq('follower_id', session.user.id)
-      ]);
-
-      setStats({
-        followers: followersRes.count || 0,
-        following: followingRes.count || 0
-      });
     }
     setLoading(false);
   };
@@ -176,21 +164,6 @@ export default function Profile() {
                   Apaixonado por pixel art e design digital.
                 </p>
 
-                {/* Stats Row */}
-                <div className="flex gap-8 justify-center sm:justify-start mb-6">
-                  <div className="text-center sm:text-left">
-                    <div className="text-xl font-black text-white">{stats.followers}</div>
-                    <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1">
-                      <Users size={10} /> Seguidores
-                    </div>
-                  </div>
-                  <div className="text-center sm:text-left">
-                    <div className="text-xl font-black text-white">{stats.following}</div>
-                    <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1">
-                      <Users size={10} /> Seguindo
-                    </div>
-                  </div>
-                </div>
 
                 <div className="flex flex-wrap gap-3 justify-center sm:justify-start">
                   <div className="px-4 py-2 bg-[#111] border border-[#222] rounded-xl text-xs font-black flex items-center gap-2 text-green-500">

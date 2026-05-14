@@ -105,9 +105,10 @@ export default function App() {
         const themeConfig = themes.find(t => t.id === savedTheme);
         if (themeConfig) applyTheme(themeConfig);
       } else {
-        const defaultTheme = themes.find(t => t.id === 'default');
+        const defaultTheme = themes.find(t => t.id === 'clean-dark');
         if (defaultTheme) applyTheme(defaultTheme);
       }
+
     } catch (e) {}
 
     const logoTimer = setTimeout(() => setSplashSequence(1), 3000);

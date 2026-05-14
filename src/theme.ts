@@ -16,7 +16,19 @@ export interface Theme {
 }
 
 export const themes: Theme[] = [
+  // 0: Default Clean Themes
+  {
+    id: 'clean-dark',
+    name: 'Escuro Clean Suave',
+    colors: { bgApp: '#0a0a0a', bgSurface: '#121212', bgPanel: '#181818', bgElement: '#222222', borderSubtle: '#2a2a2a', borderStrong: '#333333', textPrimary: '#ffffff', textSecondary: '#a0a0a0', textMuted: '#666666', accentColor: '#3b82f6' }
+  },
+  {
+    id: 'clean-light',
+    name: 'Branco Clean Suave',
+    colors: { bgApp: '#f8f9fa', bgSurface: '#ffffff', bgPanel: '#ffffff', bgElement: '#f1f3f5', borderSubtle: '#e9ecef', borderStrong: '#dee2e6', textPrimary: '#212529', textSecondary: '#495057', textMuted: '#adb5bd', accentColor: '#3b82f6' }
+  },
   // 1-10: Dark Themes
+
   {
     id: 'default',
     name: 'Dragão Escuro',
@@ -173,14 +185,17 @@ export const themes: Theme[] = [
   }
 ];
 
-// 5 free themes — all others require PRO
 export const FREE_THEME_IDS: ReadonlySet<string> = new Set([
-  'default',   // Dragão Escuro
-  'light',     // Claro (Padrão)
-  'nord',      // Nord Escuro
-  'paper',     // Papel
-  'monokai',   // Monokai
+  'clean-dark',
+  'clean-light',
+  'default',
+  'light',
+  'nord',
+  'paper',
+  'monokai',
 ]);
+
+
 
 export function applyTheme(theme: Theme) {
   const root = document.documentElement;

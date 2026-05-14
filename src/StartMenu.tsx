@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Trash2, Plus, Download, Palette, Settings, HelpCircle, X, PlayCircle, BookOpen, Pencil, Layers as LayersIcon, Film, Play, Copy, Sun, Check, Star, Image as ImageIcon, FileImage, User, Users, Home, LogOut, Shield, Award, Mail, Lock, Eye, EyeOff, ChevronRight, Share2, RefreshCw, Share as ShareIcon, Heart, ArrowRight, Send, MessageSquare, Maximize2, UserPlus, ArrowLeft } from 'lucide-react';
+import { Trash2, Plus, Download, Palette, Settings, HelpCircle, X, PlayCircle, BookOpen, Pencil, Layers as LayersIcon, Film, Play, Copy, Sun, Check, Star, Image as ImageIcon, FileImage, User, Home, LogOut, Shield, Award, Mail, Lock, Eye, EyeOff, ChevronRight, Share2, RefreshCw, ArrowRight, Send, ArrowLeft } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
@@ -14,6 +14,8 @@ import { generateId, getAvatarFallback } from './utils';
 import { supabase } from './lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 import { CONFIG } from './config';
+import OnboardingTutorial from './components/OnboardingTutorial';
+
 
 export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig, isPro: boolean, userName: string) => void }) {
   const [name, setName] = useState('My Pixel Art');
@@ -22,11 +24,8 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
   const [customHeight, setCustomHeight] = useState(16);
   const [isCustom, setIsCustom] = useState(false);
   const [savedProjects, setSavedProjects] = useState<ProjectConfig[]>([]);
-  const [activeTab, setActiveTab] = useState<'home' | 'profile' | 'community'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'profile'>('home');
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
-  const [communityPosts, setCommunityPosts] = useState<any[]>([]);
-  const [loadingCommunity, setLoadingCommunity] = useState(false);
-  const [isPosting, setIsPosting] = useState(false);
   const [profileName, setProfileName] = useState('Artista Pixel');
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -68,30 +67,9 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showTutorials, setShowTutorials] = useState(false);
+  const [isTutorialOpen, setIsTutorialOpen] = useState(false);
 
-  // Publish Modal State
-  const [showPublishModal, setShowPublishModal] = useState(false);
-  const [publishProject, setPublishProject] = useState<ProjectConfig | null>(null);
-  const [publishTitle, setPublishTitle] = useState('');
-  const [publishDescription, setPublishDescription] = useState('');
-  const [publishIsPrivate, setPublishIsPrivate] = useState(false);
-  const [publishing, setPublishing] = useState(false);
 
-  // User Profile Modal State
-  const [viewingUser, setViewingUser] = useState<any | null>(null);
-  const [viewingUserPosts, setViewingUserPosts] = useState<any[]>([]);
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [followersCount, setFollowersCount] = useState(0);
-  const [profileModalTab, setProfileModalTab] = useState<'posts'|'followers'>('posts');
-  const [viewingUserFollowers, setViewingUserFollowers] = useState<any[]>([]);
-
-  // Zoomed Post Lightbox
-  const [zoomedPost, setZoomedPost] = useState<any | null>(null);
-
-  // Current User Stats
-  const [myFollowersCount, setMyFollowersCount] = useState(0);
-  const [myFollowingCount, setMyFollowingCount] = useState(0);
-  const [myTotalLikes, setMyTotalLikes] = useState(0);
 
 
   const defaultShortcuts: Record<string, string> = {
@@ -127,15 +105,14 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
   const [shortcutConfigMode, setShortcutConfigMode] = useState<string | null>(null);
 
   // Theming state
-  const [currentThemeId, setCurrentThemeId] = useState<string>('default');
+  const [currentThemeId, setCurrentThemeId] = useState<string>('clean-dark');
+
 
   // Sound state
   const [sfxEnabled, setSfxEnabled] = useState(() => sound.isSfxEnabled());
   const [bgmEnabled, setBgmEnabled] = useState(() => sound.isBgmEnabled());
   
-  // Community Interaction State
-  const [commentingOn, setCommentingOn] = useState<string | null>(null);
-  const [commentText, setCommentText] = useState<string>('');
+  // Audio state
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState<'welcome' | 'auth' | 'avatar' | 'name' | null>(null);
 
@@ -235,12 +212,13 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
         const themeConfig = themes.find(t => t.id === savedTheme);
         if (themeConfig) applyTheme(themeConfig);
       } else {
-        const defaultTheme = themes.find(t => t.id === 'default');
+        const defaultTheme = themes.find(t => t.id === 'clean-dark');
         if (defaultTheme) {
           applyTheme(defaultTheme);
-          setCurrentThemeId('default');
+          setCurrentThemeId('clean-dark');
         }
       }
+
     } catch (e) {
       console.warn('Failed to load theme:', e);
       const defaultTheme = themes.find(t => t.id === 'default');
@@ -670,10 +648,10 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
           const metaAvatar = session.user.user_metadata?.avatar_url;
           const metaBadge = session.user.user_metadata?.badge;
 
-          // Source of Truth: Metadata (User's last action) > Database > Current State
-          const finalName = metaName || data.display_name || profileName;
-          const finalAvatar = metaAvatar || data.avatar_url || profileImage;
-          const finalBadge = metaBadge || data.badge || selectedBadge;
+          // Source of Truth: Database (Community data) > Metadata (Fallback) > Current State
+          const finalName = data.display_name || metaName || profileName;
+          const finalAvatar = data.avatar_url || metaAvatar || profileImage;
+          const finalBadge = data.badge || metaBadge || selectedBadge;
 
           if (finalName) setProfileName(finalName);
           if (finalAvatar) setProfileImage(finalAvatar);
@@ -708,330 +686,6 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
     fetchProStatus();
   }, [session]);
 
-  useEffect(() => {
-    if (!session?.user) return;
-
-    const fetchMyStats = async () => {
-      const { count: followers } = await supabase.from('followers').select('*', { count: 'exact', head: true }).eq('following_id', session.user.id);
-      const { count: following } = await supabase.from('followers').select('*', { count: 'exact', head: true }).eq('follower_id', session.user.id);
-      
-      const { data: posts } = await supabase.from('posts').select('likes').eq('user_id', session.user.id);
-      const totalLikes = posts?.reduce((acc, p) => acc + (p.likes || 0), 0) || 0;
-      
-      setMyFollowersCount(followers || 0);
-      setMyFollowingCount(following || 0);
-      setMyTotalLikes(totalLikes);
-    };
-
-    fetchMyStats();
-
-    // Notificacao de seguidor em tempo real
-    const channel = supabase
-      .channel('followers_channel')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'followers', filter: `following_id=eq.${session.user.id}` }, payload => {
-        Toast.show({ text: 'ðŸŽ‰ Novo seguidor! AlguÃ©m comeÃ§ou a acompanhar suas artes.' }).catch(() => {});
-        setMyFollowersCount(prev => prev + 1);
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [session]);
-
-  // Realtime Profile Updates for Community
-  useEffect(() => {
-    if (!session) return;
-
-    const profileChannel = supabase
-      .channel('public:profiles_updates')
-      .on('postgres_changes', { 
-        event: 'UPDATE', 
-        schema: 'public', 
-        table: 'profiles' 
-      }, payload => {
-        const updatedProfile = payload.new;
-        // Update community posts in real-time when any user updates their profile
-        setCommunityPosts(currentPosts => 
-          currentPosts.map(post => 
-            post.user_id === updatedProfile.id 
-              ? { ...post, profiles: { ...post.profiles, ...updatedProfile } } 
-              : post
-          )
-        );
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(profileChannel);
-    };
-  }, [session]);
-
-  const fetchCommunityPosts = async () => {
-    setLoadingCommunity(true);
-    try {
-      const { data, error } = await supabase
-        .from('posts')
-        .select(`
-          id, title, description, is_private, image_url, likes, created_at, user_id,
-          profiles (id, display_name, experience_level, is_pro, badge, avatar_url),
-          comments (id, content, user_id, profiles (display_name, avatar_url))
-        `)
-        .order('created_at', { ascending: false })
-        .limit(30);
-      
-      if (!error && data) setCommunityPosts(data);
-    } catch (err) {
-      console.error('Erro ao buscar posts:', err);
-    } finally {
-      setLoadingCommunity(false);
-    }
-  };
-
-  const handleTogglePostPrivacy = async (postId: string, currentIsPrivate: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('posts')
-        .update({ is_private: !currentIsPrivate })
-        .eq('id', postId);
-      
-      if (error) throw error;
-      
-      // Update local state optimistically or re-fetch
-      setCommunityPosts(prev => prev.map(p => 
-        p.id === postId ? { ...p, is_private: !currentIsPrivate } : p
-      ));
-      
-      sound.playAction();
-    } catch (err) {
-      console.error('Erro ao mudar privacidade:', err);
-      alert('Erro ao alterar a privacidade do post.');
-    }
-  };
-
-  const handleLikePost = async (postId: string) => {
-    if (!session?.user) {
-      alert('VocÃª precisa estar logado para curtir.');
-      return;
-    }
-    
-    const postIndex = communityPosts.findIndex(p => p.id === postId);
-    if (postIndex === -1) return;
-    const post = communityPosts[postIndex];
-    
-    try {
-      // Tenta inserir a curtida
-      const { error } = await supabase.from('post_likes').insert({
-        post_id: postId,
-        user_id: session.user.id
-      });
-      
-      if (!error) {
-        // Se sucesso (novo like)
-        const updatedPosts = [...communityPosts];
-        updatedPosts[postIndex] = { ...post, likes: (post.likes || 0) + 1 };
-        setCommunityPosts(updatedPosts);
-        await supabase.from('posts').update({ likes: (post.likes || 0) + 1 }).eq('id', postId);
-      } else {
-        // Se deu erro, possivelmente jÃ¡ curtiu, entÃ£o descurte
-        const { error: deleteError } = await supabase.from('post_likes')
-          .delete()
-          .match({ post_id: postId, user_id: session.user.id });
-          
-        if (!deleteError) {
-          const updatedPosts = [...communityPosts];
-          updatedPosts[postIndex] = { ...post, likes: Math.max(0, (post.likes || 1) - 1) };
-          setCommunityPosts(updatedPosts);
-          await supabase.from('posts').update({ likes: Math.max(0, (post.likes || 1) - 1) }).eq('id', postId);
-        }
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleCommentSubmit = async (postId: string) => {
-    if (!session?.user) {
-      alert('VocÃª precisa estar logado para comentar.');
-      return;
-    }
-    if (!commentText.trim()) return;
-    
-    try {
-      const { data, error } = await supabase.from('comments').insert({
-        post_id: postId,
-        user_id: session.user.id,
-        content: commentText.trim()
-      }).select('id, content, profiles (display_name)').single();
-      
-      if (!error && data) {
-        const updatedPosts = [...communityPosts];
-        const postIndex = updatedPosts.findIndex(p => p.id === postId);
-        if (postIndex !== -1) {
-          updatedPosts[postIndex] = {
-            ...updatedPosts[postIndex],
-            comments: [...(updatedPosts[postIndex].comments || []), data]
-          };
-          setCommunityPosts(updatedPosts);
-        }
-        setCommentText('');
-        setCommentingOn(null);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleDeletePost = async (postId: string) => {
-    if (!session?.user) return;
-    if (!window.confirm('Tem certeza que deseja apagar sua arte da comunidade?')) return;
-    
-    try {
-      const { error } = await supabase.from('posts').delete().eq('id', postId);
-      if (!error) {
-        setCommunityPosts(prev => prev.filter(p => p.id !== postId));
-      } else {
-        console.error('Erro ao apagar:', error);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  useEffect(() => {
-    if (activeTab === 'community') {
-      fetchCommunityPosts();
-    }
-  }, [activeTab]);
-
-  const handleOpenPublishModal = (project: ProjectConfig) => {
-    if (!session) {
-      setAuthError('VocÃª precisa estar logado para postar.');
-      setActiveTab('profile');
-      return;
-    }
-    if (!project.thumbnail) {
-      alert('Este projeto nÃ£o tem uma miniatura. Abra e salve o projeto primeiro.');
-      return;
-    }
-    setPublishProject(project);
-    setPublishTitle(project.name);
-    setPublishDescription('');
-    setPublishIsPrivate(false);
-    setShowPublishModal(true);
-  };
-
-  const submitPublishPost = async () => {
-    if (!session || !publishProject) return;
-    setPublishing(true);
-    try {
-      const res = await fetch(publishProject.thumbnail!);
-      const blob = await res.blob();
-      const fileName = `${session.user.id}/${Date.now()}.png`;
-
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('arts')
-        .upload(fileName, blob, { contentType: 'image/png' });
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage.from('arts').getPublicUrl(fileName);
-
-      const { error: insertError } = await supabase
-        .from('posts')
-        .insert({
-          user_id: session.user.id,
-          title: publishTitle,
-          description: publishDescription.trim() || null,
-          is_private: publishIsPrivate,
-          image_url: publicUrl
-        });
-
-      if (insertError) throw insertError;
-
-      alert('Arte publicada com sucesso! ðŸ ‰âœ¨');
-      setShowPublishModal(false);
-      setPublishProject(null);
-      if (activeTab === 'community') fetchCommunityPosts();
-    } catch (err) {
-      console.error('Erro ao publicar:', err);
-      alert('Erro ao publicar a arte.');
-    } finally {
-      setPublishing(false);
-    }
-  };
-
-  const handleViewUserProfile = async (userId: string, _currentPostProfile: any) => {
-    if (!session) return;
-    try {
-      // 0. Always fetch the FRESH profile from the database (source of truth)
-      const { data: freshProfile } = await supabase
-        .from('profiles')
-        .select('id, display_name, avatar_url, badge, is_pro, experience_level')
-        .eq('id', userId)
-        .maybeSingle();
-
-      const profileData = freshProfile || _currentPostProfile || {};
-
-      // 1. Fetch user stats
-      const { count: postsCount } = await supabase.from('posts').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('is_private', false);
-      const { count: followersCount } = await supabase.from('followers').select('*', { count: 'exact', head: true }).eq('following_id', userId);
-      
-      // 2. Fetch is following
-      const { data: followData } = await supabase.from('followers').select('*').eq('follower_id', session.user.id).eq('following_id', userId).maybeSingle();
-      
-      // 3. Fetch user public posts
-      const { data: userPosts } = await supabase.from('posts')
-        .select(`id, title, description, image_url, likes, created_at, comments (id, content)`)
-        .eq('user_id', userId)
-        .eq('is_private', false)
-        .order('created_at', { ascending: false });
-
-      // 4. Fetch followers profiles
-      const { data: followersData } = await supabase.from('followers').select('follower_id').eq('following_id', userId);
-      const followerIds = followersData?.map(f => f.follower_id) || [];
-      const { data: followersProfiles } = followerIds.length > 0 
-        ? await supabase.from('profiles').select('id, display_name, avatar_url, badge, is_pro').in('id', followerIds)
-        : { data: [] };
-
-      const isFounder = profileData?.display_name?.toLowerCase() === 'kelvin' || profileData?.id === '41066d58-7c5e-49b5-9009-b1dfd11b72f3';
-
-      setViewingUser({
-        ...profileData,
-        id: userId,
-        postsCount: postsCount || 0,
-        isFounder: isFounder
-      });
-      setFollowersCount(isFounder ? 1200000 : (followersCount || 0));
-      setIsFollowing(!!followData);
-      setViewingUserPosts(userPosts || []);
-      setViewingUserFollowers(followersProfiles || []);
-      setProfileModalTab('posts');
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleFollowToggle = async () => {
-    if (!session || !viewingUser) return;
-    try {
-      if (isFollowing) {
-        const { error } = await supabase.from('followers').delete().match({ follower_id: session.user.id, following_id: viewingUser.id });
-        if (!error) {
-          setIsFollowing(false);
-          setFollowersCount(prev => Math.max(0, prev - 1));
-        }
-      } else {
-        const { error } = await supabase.from('followers').insert({ follower_id: session.user.id, following_id: viewingUser.id });
-        if (!error) {
-          setIsFollowing(true);
-          setFollowersCount(prev => prev + 1);
-        }
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
   const experienceLevels = [
     { id: 'iniciante' as const, label: 'Iniciante', icon: 'ðŸŒ±', desc: 'ComeÃ§ando no pixel art' },
     { id: 'intermediario' as const, label: 'IntermediÃ¡rio', icon: 'âš¡', desc: 'JÃ¡ domino o bÃ¡sico' },
@@ -1142,23 +796,13 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
       
       if (profileError) {
         console.error('Error updating public profile:', profileError);
-        setAuthError('Erro ao atualizar perfil público na comunidade.');
+        setAuthError('Erro ao salvar as alterações do perfil.');
       }
     }
 
     if (authError) setAuthError(authError.message);
     else {
       setAuthSuccess('Perfil e Avatar salvos! ✨');
-      // Optimistic update for current user's posts in the local state
-      if (session?.user?.id) {
-        setCommunityPosts(currentPosts => 
-          currentPosts.map(post => 
-            post.user_id === session.user.id 
-              ? { ...post, profiles: { ...post.profiles, display_name: profileName, avatar_url: avatarUrl, badge: selectedBadge, experience_level: experienceLevel } } 
-              : post
-          )
-        );
-      }
     }
     setTimeout(() => setAuthSuccess(null), 3000);
   };
@@ -1270,7 +914,6 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                 <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex flex-col items-center">
                   <div className="text-center mb-8">
                     <h2 className="text-3xl font-black text-white mb-2 uppercase tracking-tighter">Escolha sua Face</h2>
-                    <p className="text-xs text-[var(--accent-color)] font-bold uppercase tracking-widest">Sua foto será vista por toda a comunidade</p>
                   </div>
                   
                   <div className="w-full max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
@@ -1340,7 +983,6 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                       <img src={profileImage || ''} className="w-full h-full object-cover" />
                     </div>
                     <h2 className="text-3xl font-black text-white mb-2 uppercase tracking-tighter">Como quer ser chamado?</h2>
-                    <p className="text-xs text-[var(--accent-color)] font-bold uppercase tracking-widest">Este será seu nome artístico no Dragon Art</p>
                   </div>
                   <input type="text" placeholder="Ex: Mestre Pixel" value={profileName} onChange={e => setProfileName(e.target.value)}
                     className="w-full bg-white/5 border border-white/10 rounded-2xl py-6 px-8 text-white text-center text-xl outline-none focus:border-[var(--accent-color)]/50 focus:bg-white/[0.08] transition-all font-black mb-8" />
@@ -1692,13 +1334,6 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                                   <button onClick={(e) => { e.stopPropagation(); duplicateProject(p.id); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors"><Copy size={14} /> Duplicar</button>
                                   <button onClick={(e) => { e.stopPropagation(); renameProject(p.id); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors"><Pencil size={14} /> Renomear</button>
                                   <button onClick={(e) => { e.stopPropagation(); deleteProject(p.id); setOpenMenuId(null); }} className="w-full px-4 py-2 text-sm text-red-400 hover:bg-red-500 hover:text-white flex items-center gap-2 transition-colors"><Trash2 size={14} /> Excluir</button>
-                                  <div className="h-px bg-white/10 mx-2" />
-                                  <button 
-                                    onClick={(e) => { e.stopPropagation(); handleOpenPublishModal(p); setOpenMenuId(null); }} 
-                                    className="w-full px-4 py-2 text-sm text-[var(--accent-color)] hover:bg-[var(--accent-color)] hover:text-white flex items-center gap-2 transition-colors font-bold"
-                                  >
-                                    <ShareIcon size={14} /> Publicar na Comunidade
-                                  </button>
                                 </motion.div>
                               </>
                             )}
@@ -1720,32 +1355,6 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
               exit={{ opacity: 0, y: -20 }}
               className="flex-1 max-w-4xl mx-auto w-full p-4 sm:p-6 flex flex-col items-center justify-start overflow-y-auto gap-6"
             >
-              {/* Quick Actions Header */}
-              <div className="w-full flex justify-between items-center bg-[var(--bg-panel)] p-4 rounded-[24px] border border-white/5 shadow-lg">
-                <div className="flex gap-2">
-                  <button onClick={handleSaveProfile}
-                    className="bg-[var(--accent-color)] hover:brightness-110 px-6 py-2.5 rounded-xl text-white font-black text-xs shadow-lg flex items-center gap-2 active:scale-95 transition-all">
-                    <Check size={16} /> SALVAR PERFIL
-                  </button>
-                </div>
-                <button onClick={handleSignOut}
-                  className="px-4 py-2.5 bg-white/5 text-[var(--text-muted)] hover:bg-red-500/20 hover:text-red-400 rounded-xl font-black text-xs flex items-center gap-2 active:scale-95 transition-all border border-white/5">
-                  <LogOut size={16} /> SAIR
-                </button>
-              </div>
-              {/* Auth Messages */}
-              <AnimatePresence>
-                {authError && (
-                  <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full max-w-md p-4 bg-red-500/15 border border-red-500/30 rounded-2xl text-red-400 text-sm font-bold text-center">
-                    {authError}
-                  </motion.div>
-                )}
-                {authSuccess && (
-                  <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full max-w-md p-4 bg-green-500/15 border border-green-500/30 rounded-2xl text-green-400 text-sm font-bold text-center">
-                    {authSuccess}
-                  </motion.div>
-                )}
-              </AnimatePresence>
 
               {!session ? (
                 /* ========== NOT LOGGED IN ========== */
@@ -1901,41 +1510,36 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                           <Mail size={12} /> {session.user.email}
                         </p>
                         
-                        {/* Stats */}
-                        <div className="flex gap-3 mt-2 flex-wrap">
-                          <div className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-xl border border-white/5">
-                            <FileImage className="text-[var(--accent-color)]" size={16} />
-                            <div>
-                              <span className="text-sm font-black text-white">{savedProjects.length}</span>
-                              <span className="text-[9px] font-bold text-[var(--text-muted)] ml-1 uppercase">Artes</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-xl border border-white/5">
-                            <Heart className="text-red-400" size={16} />
-                            <div>
-                              <span className="text-sm font-black text-white">{myTotalLikes}</span>
-                              <span className="text-[9px] font-bold text-[var(--text-muted)] ml-1 uppercase">Curtidas</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-xl border border-white/5">
-                            <Users className="text-blue-400" size={16} />
-                            <div>
-                              <span className="text-sm font-black text-white">
-                                {profileName === 'KELVIN' || session?.user?.email === 'kelvinlexjesusda@gmail.com' ? '1.2M' : myFollowersCount}
-                              </span>
-                              <span className="text-[9px] font-bold text-[var(--text-muted)] ml-1 uppercase">Seguidores</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-xl border border-white/5">
-                            <User className="text-gray-400" size={16} />
-                            <div>
-                              <span className="text-sm font-black text-white">{myFollowingCount}</span>
-                              <span className="text-[9px] font-bold text-[var(--text-muted)] ml-1 uppercase">Seguindo</span>
-                            </div>
-                          </div>
-                        </div>
                       </div>
                     </div>
+
+                    {/* PRO Upgrade Banner - MOVED UP */}
+                    {!isPro && (
+                      <div className="px-6 pb-6 pt-0">
+                        <motion.div
+                          whileHover={{ scale: 1.01 }}
+                          onClick={() => setShowProModal(true)}
+                          className="relative overflow-hidden cursor-pointer rounded-[24px] border border-yellow-400/30 shadow-[0_0_40px_rgba(251,191,36,0.12)] group"
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/10 via-orange-500/5 to-amber-600/10" />
+                          <div className="absolute -top-10 -right-10 w-32 h-32 bg-yellow-400/10 rounded-full blur-3xl" />
+                          <div className="relative p-5 flex items-center gap-4">
+                            <motion.div
+                              animate={{ rotate: [0, 5, -5, 0] }}
+                              transition={{ duration: 3, repeat: Infinity }}
+                              className="w-14 h-14 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl flex items-center justify-center shadow-xl shrink-0"
+                            >
+                              <Star size={24} className="text-black fill-black" />
+                            </motion.div>
+                            <div className="flex-1">
+                              <h3 className="font-black text-white text-base">Desbloqueie o PRO</h3>
+                              <p className="text-[10px] text-yellow-300/70 font-bold mt-1">Exportação HD/4K • Sem marca d'água • Selos animados • Camadas ilimitadas</p>
+                            </div>
+                            <ChevronRight size={20} className="text-yellow-400 shrink-0 group-hover:translate-x-1 transition-transform" />
+                          </div>
+                        </motion.div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Badge Selection - Professional Grid */}
@@ -2049,31 +1653,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                     </div>
                   </div>
 
-                  {/* PRO Upgrade Card (only for free users) */}
-                  {!isPro && (
-                    <motion.div
-                      whileHover={{ scale: 1.01 }}
-                      onClick={() => setShowProModal(true)}
-                      className="relative overflow-hidden cursor-pointer rounded-[28px] border border-yellow-400/30 shadow-[0_0_40px_rgba(251,191,36,0.12)] group"
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/10 via-orange-500/5 to-amber-600/10" />
-                      <div className="absolute -top-10 -right-10 w-32 h-32 bg-yellow-400/10 rounded-full blur-3xl" />
-                      <div className="relative p-6 flex items-center gap-5">
-                        <motion.div
-                          animate={{ rotate: [0, 5, -5, 0] }}
-                          transition={{ duration: 3, repeat: Infinity }}
-                          className="w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl flex items-center justify-center shadow-xl shrink-0"
-                        >
-                          <Star size={32} className="text-black fill-black" />
-                        </motion.div>
-                        <div className="flex-1">
-                          <h3 className="font-black text-white text-lg">Desbloqueie o PRO</h3>
-                          <p className="text-xs text-yellow-300/70 font-bold mt-1">ExportaÃ§Ã£o HD/4K â€¢ Sem marca d'Ã¡gua â€¢ Selos animados â€¢ Camadas ilimitadas</p>
-                        </div>
-                        <ChevronRight size={24} className="text-yellow-400 shrink-0 group-hover:translate-x-1 transition-transform" />
-                      </div>
-                    </motion.div>
-                  )}
+
 
                   {/* Actions Row */}
                   <div className="flex gap-3">
@@ -2094,249 +1674,6 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
           )}
 
 
-          {activeTab === 'community' && (
-            <motion.div
-              key="community"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="flex-1 max-w-6xl mx-auto w-full p-6 flex flex-col gap-8"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-3xl font-black text-white" style={{ textShadow: '2px 2px 0 #000' }}>Comunidade</h2>
-                  <p className="text-xs font-bold text-[var(--accent-color)] uppercase tracking-widest mt-1">Galeria Global de Artistas</p>
-                </div>
-                <button 
-                  onClick={fetchCommunityPosts}
-                  disabled={loadingCommunity}
-                  className="p-3 bg-white/5 hover:bg-white/10 rounded-full text-[var(--accent-color)] transition-all active:rotate-180"
-                >
-                  <RefreshCw size={20} className={loadingCommunity ? 'animate-spin' : ''} />
-                </button>
-              </div>
-
-              {loadingCommunity && communityPosts.length === 0 ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                  {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
-                    <div key={i} className="bg-[var(--bg-panel)] rounded-[32px] border border-white/5 overflow-hidden animate-pulse">
-                      <div className="aspect-square bg-white/5" />
-                      <div className="p-4 space-y-3">
-                        <div className="h-4 bg-white/10 rounded-full w-3/4" />
-                        <div className="h-3 bg-white/5 rounded-full w-1/2" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : communityPosts.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 text-center bg-white/5 rounded-[48px] border border-dashed border-white/10">
-                  <div className="w-20 h-20 bg-[var(--accent-color)]/10 rounded-full flex items-center justify-center mb-6">
-                    <Sun size={40} className="text-[var(--accent-color)]" />
-                  </div>
-                  <h3 className="text-2xl font-black text-white mb-3">Ainda nÃ£o hÃ¡ artes...</h3>
-                  <p className="text-sm text-[var(--text-muted)] max-w-xs font-bold">Seja o primeiro a postar na comunidade v1.7.1!</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {communityPosts.map((rawPost) => {
-                      // Normalize profiles: Supabase joins can return an array or object
-                      const postProfile = Array.isArray(rawPost.profiles) ? rawPost.profiles[0] : rawPost.profiles;
-                      const post = { ...rawPost, profiles: postProfile };
-
-                      const idMatch = post.description?.match(/\[ID:(.*)\|(.*)\]/);
-                      const embeddedAvatar = idMatch ? idMatch[1] : null;
-                      const embeddedName = idMatch ? idMatch[2] : null;
-                      const cleanDescription = post.description?.replace(/\[ID:.*\]/, '').trim();
-
-                      // Source of truth: DB profile > embedded > fallback
-                      const postDisplayName = post.profiles?.display_name || embeddedName || 'Anônimo';
-                      const postAvatarUrl = post.profiles?.avatar_url || embeddedAvatar || null;
-                      const postBadge = post.profiles?.badge;
-                      const postIsPro = post.profiles?.is_pro;
-                      
-                      return (
-                        <motion.div 
-                          layout
-                          initial={{ opacity: 0, scale: 0.9 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          key={post.id} 
-                          className="bg-[var(--bg-panel)] rounded-[32px] border border-white/5 overflow-hidden shadow-lg group"
-                        >
-                          <div 
-                            className="aspect-square bg-black/20 flex items-center justify-center p-4 relative cursor-pointer group/image"
-                            onClick={() => setZoomedPost({...post, description: cleanDescription, _postDisplayName: postDisplayName})}
-                          >
-                            <img 
-                              src={post.image_url} 
-                              alt={post.title} 
-                              className="max-w-full max-h-full object-contain image-pixelated group-hover/image:scale-110 transition-transform" 
-                            />
-                            <div className="absolute inset-0 bg-black/0 group-hover/image:bg-black/10 transition-colors flex items-center justify-center">
-                              <span className="opacity-0 group-hover/image:opacity-100 bg-black/50 text-white text-xs font-bold px-3 py-1.5 rounded-full backdrop-blur-sm transition-opacity flex items-center gap-2">
-                                <Maximize2 size={14} /> Ampliar
-                              </span>
-                            </div>
-                              {session?.user?.id === post.user_id && (
-                                <div className="flex gap-2 absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); handleTogglePostPrivacy(post.id, !!post.is_private); }}
-                                    className={`p-2 rounded-full backdrop-blur-sm transition-all ${post.is_private ? 'bg-yellow-500 text-black' : 'bg-white/20 text-white hover:bg-white/40'}`}
-                                    title={post.is_private ? "Tornar Público" : "Tornar Privado"}
-                                  >
-                                    {post.is_private ? <EyeOff size={16} /> : <Eye size={16} />}
-                                  </button>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); handleDeletePost(post.id); }}
-                                    className="p-2 bg-red-500/80 hover:bg-red-500 text-white rounded-full backdrop-blur-sm transition-all"
-                                    title="Apagar Post"
-                                  >
-                                    <Trash2 size={16} />
-                                  </button>
-                                </div>
-                              )}
-
-                        {post.is_private && (
-                          <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur-md rounded-lg border border-yellow-500/30 flex items-center gap-1.5 pointer-events-none">
-                            <Lock size={10} className="text-yellow-500" />
-                            <span className="text-[8px] font-black text-yellow-500 uppercase tracking-tighter">Privado</span>
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="p-4 border-t border-white/5">
-                        <div className="flex items-center gap-3 mb-3">
-                          <button 
-                            onClick={() => handleViewUserProfile(post.user_id, post.profiles)}
-                            className="w-10 h-10 rounded-full overflow-hidden bg-white/5 shrink-0 border-2 border-white/10 hover:border-[var(--accent-color)] transition-colors"
-                          >
-                            <div className="relative w-full h-full">
-                              <img 
-                                src={post.user_id === session?.user?.id 
-                                  ? getAvatarFallback(profileImage, profileName)
-                                  : getAvatarFallback(postAvatarUrl, postDisplayName)} 
-                                className="w-full h-full object-cover" 
-                                alt="Avatar" 
-                                onError={(e) => { (e.target as HTMLImageElement).src = getAvatarFallback(null, postDisplayName); }}
-                              />
-                              {/* Badge overlay on avatar corner */}
-                              {(post.user_id === session?.user?.id ? selectedBadge : postBadge) && (
-                                <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-[var(--bg-app)] flex items-center justify-center shadow-lg z-10 border border-white/10">
-                                  <img 
-                                    src={badges.find(b => b.id === (post.user_id === session?.user?.id ? selectedBadge : postBadge))?.image || '/badges/free_1.png'} 
-                                    className="w-2.5 h-2.5 object-contain" 
-                                    alt="Selo" 
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          </button>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <h4 className="font-bold text-sm text-white truncate">{post.title}</h4>
-                              {(postDisplayName?.toLowerCase() === 'kelvin' || post.profiles?.id === '41066d58-7c5e-49b5-9009-b1dfd11b72f3') && (
-                                <span className="px-1.5 py-0.5 bg-gradient-to-r from-yellow-500 to-amber-600 text-black text-[8px] font-black rounded-sm shadow-[0_0_10px_rgba(245,158,11,0.3)] animate-pulse">
-                                  FUNDADOR
-                                </span>
-                              )}
-                            </div>
-                            <button 
-                              onClick={() => handleViewUserProfile(post.user_id, post.profiles)}
-                              className="flex items-center gap-1 overflow-hidden hover:opacity-80 transition-opacity text-left active:scale-95"
-                            >
-                              <span className="text-xs text-[var(--accent-color)] font-bold truncate">
-                                @{post.user_id === session?.user?.id ? profileName : postDisplayName}
-                              </span>
-                              {(post.user_id === session?.user?.id ? isPro : postIsPro) && <Star size={10} className="text-yellow-400 fill-yellow-400" />}
-                            </button>
-                          </div>
-                        </div>
-
-                        {post.description && (
-                          <p className="text-xs text-gray-400 mb-3 line-clamp-2 leading-relaxed">{post.description}</p>
-                        )}
-
-                        <div className="flex items-center justify-between mt-2 pt-3 border-t border-white/5">
-                          <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-1 text-[var(--text-muted)]">
-                              <button onClick={() => handleLikePost(post.id)} className="hover:text-red-400 transition-colors active:scale-90 p-1">
-                                <Heart size={16} className={post.likes > 0 ? "fill-red-400 text-red-400" : ""} />
-                              </button>
-                              <span className="text-xs font-bold">{post.likes || 0}</span>
-                            </div>
-                            
-                            {session?.user?.id !== post.user_id && (
-                              <button 
-                                onClick={async () => {
-                                  if(!session) return;
-                                  const { error } = await supabase.from('followers').insert({ follower_id: session.user.id, following_id: post.user_id });
-                                  if (!error) alert('VocÃª comeÃ§ou a seguir ' + (post.profiles?.display_name || 'este artista') + '!');
-                                  else alert('VocÃª jÃ¡ segue este artista.');
-                                }}
-                                className="hover:text-blue-400 text-[var(--text-muted)] transition-colors active:scale-90 p-1 flex items-center gap-1"
-                                title="Seguir Artista"
-                              >
-                                <UserPlus size={16} />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* ComentÃ¡rios na visualizaÃ§Ã£o do App */}
-                        {post.comments && post.comments.length > 0 && (
-                          <div className="mt-3 pt-3 border-t border-white/5 flex flex-col gap-2 max-h-[120px] overflow-y-auto custom-scrollbar">
-                            {post.comments.map((comment: any) => (
-                              <div key={comment.id} className="bg-black/20 rounded-lg p-2 text-xs">
-                                <span className="font-bold text-[var(--accent-color)] mr-1">
-                                  {comment.profiles?.display_name || 'UsuÃ¡rio'}:
-                                </span>
-                                <span className="text-gray-300">{comment.content}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        
-                        {(!post.comments || post.comments.length === 0) && (
-                          <div className="mt-3 pt-3 border-t border-white/5 text-center">
-                            <span className="text-[9px] text-gray-500 font-bold">
-                              Seja o primeiro a comentar.
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Caixa de Novo ComentÃ¡rio */}
-                        <div className="mt-2 pt-2 flex items-center gap-2">
-                          {commentingOn === post.id ? (
-                            <div className="flex-1 flex items-center gap-1 bg-black/40 rounded-full border border-white/10 px-3 py-1">
-                              <input 
-                                type="text"
-                                autoFocus
-                                value={commentText}
-                                onChange={e => setCommentText(e.target.value)}
-                                placeholder="Escreva..."
-                                className="bg-transparent border-none outline-none text-xs text-white w-full h-6"
-                                onKeyDown={e => e.key === 'Enter' && handleCommentSubmit(post.id)}
-                              />
-                              <button onClick={() => handleCommentSubmit(post.id)} className="text-[var(--accent-color)] p-1 hover:bg-white/10 rounded-full">
-                                <Send size={12} />
-                              </button>
-                            </div>
-                          ) : (
-                            <button 
-                              onClick={() => { setCommentingOn(post.id); setCommentText(''); }}
-                              className="w-full text-center text-[10px] font-bold text-gray-400 hover:text-white py-1.5 bg-white/5 hover:bg-white/10 rounded-full transition-colors flex items-center justify-center gap-1"
-                            >
-                              <MessageSquare size={12} /> Adicionar comentário
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            )}
-            </motion.div>
-          )}
         </AnimatePresence>
       </div>
 
@@ -2344,44 +1681,35 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
       <div className="fixed bottom-0 left-0 right-0 z-[100] pointer-events-none">
         {/* Solid background at the bottom to ensure the cutout matches perfectly */}
         <div className="absolute bottom-0 left-0 right-0 h-20 bg-[var(--bg-app)] -z-10"></div>
-        <div className="bg-gradient-to-t from-[var(--bg-app)] to-transparent pt-24 pb-6 px-4">
+        <div className="bg-gradient-to-t from-[var(--bg-app)] to-transparent pt-12 pb-6 px-4">
           <div className="max-w-md mx-auto relative pointer-events-auto mt-4">
             
-            {/* Background da barra de navegaÃ§Ã£o */}
-            <div className="bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.8)] backdrop-blur-3xl h-[72px] flex items-center px-2 relative">
+            {/* Background da barra de navegação */}
+            <div className="bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.8)] backdrop-blur-3xl h-[72px] flex items-center p-1.5 relative overflow-hidden">
               
+              {/* Sliding Active Indicator */}
+              <motion.div 
+                animate={{ x: activeTab === 'profile' ? 0 : '100%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                className="absolute left-1.5 top-1.5 bottom-1.5 w-[calc(50%-3px)] bg-gradient-to-br from-[var(--accent-color)]/20 to-[var(--accent-color)]/5 rounded-full border border-[var(--accent-color)]/20 z-0"
+              />
+
               <button 
                 onClick={() => { sound.playClick(); setActiveTab('profile'); }}
-                className={`flex-1 flex flex-col items-center justify-center gap-1 transition-all duration-300 h-full rounded-l-full ${activeTab === 'profile' ? 'text-[var(--accent-color)]' : 'text-white/40 hover:text-white/80 hover:bg-white/5'}`}
+                className={`flex-1 relative z-10 flex flex-col items-center justify-center gap-1 transition-all duration-300 h-full ${activeTab === 'profile' ? 'text-[var(--accent-color)]' : 'text-white/40 hover:text-white/80'}`}
               >
-                <User size={24} className={activeTab === 'profile' ? 'fill-[var(--accent-color)]/20' : ''} />
-                <span className="text-[10px] font-black uppercase tracking-tighter mt-0.5">Perfil</span>
+                <User size={22} className={activeTab === 'profile' ? 'fill-[var(--accent-color)]/20' : ''} />
+                <span className="text-[10px] font-black uppercase tracking-widest mt-0.5">PERFIL</span>
               </button>
-
-              {/* EspaÃ§o para o botÃ£o central elevado */}
-              <div className="w-[88px] shrink-0 h-full relative flex items-center justify-center pointer-events-none">
-                 <div className="absolute -top-[34px] flex flex-col items-center pointer-events-auto">
-                    <button 
-                      onClick={() => { sound.playClick(); setActiveTab('home'); }}
-                      className={`w-[80px] h-[80px] rounded-full flex items-center justify-center transition-all duration-300 border-[8px] shadow-[0_10px_20px_rgba(0,0,0,0.5)] active:scale-95 z-10 ${activeTab === 'home' ? 'bg-[var(--accent-color)] text-white ' : 'bg-[var(--bg-element)] text-white/50 hover:text-white'}`}
-                      style={{ borderColor: 'var(--bg-app)' }}
-                    >
-                      <Home size={32} className={activeTab === 'home' ? 'fill-white/20' : ''} />
-                    </button>
-                    {/* The label can be absolute to not affect button centering */}
-                 </div>
-                 <span className={`absolute bottom-2 text-[10px] font-black uppercase tracking-tighter ${activeTab === 'home' ? 'text-[var(--accent-color)]' : 'text-white/40'}`}>
-                    InÃ­cio
-                 </span>
-              </div>
 
               <button 
-                onClick={() => { sound.playClick(); setActiveTab('community'); }}
-                className={`flex-1 flex flex-col items-center justify-center gap-1 transition-all duration-300 h-full rounded-r-full ${activeTab === 'community' ? 'text-[var(--accent-color)]' : 'text-white/40 hover:text-white/80 hover:bg-white/5'}`}
+                onClick={() => { sound.playClick(); setActiveTab('home'); }}
+                className={`flex-1 relative z-10 flex flex-col items-center justify-center gap-1 transition-all duration-300 h-full ${activeTab === 'home' ? 'text-[var(--accent-color)]' : 'text-white/40 hover:text-white/80'}`}
               >
-                <Users size={24} className={activeTab === 'community' ? 'fill-[var(--accent-color)]/20' : ''} />
-                <span className="text-[10px] font-black uppercase tracking-tighter mt-0.5">Comunidade</span>
+                <Home size={22} className={activeTab === 'home' ? 'fill-[var(--accent-color)]/20' : ''} />
+                <span className="text-[10px] font-black uppercase tracking-widest mt-0.5">INÍCIO</span>
               </button>
+
             </div>
             
           </div>
@@ -2522,285 +1850,10 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
              </div>
           </div>
         )}
+
+
       </AnimatePresence>
 
-      {/* ========== PUBLISH MODAL ========== */}
-      <AnimatePresence>
-        {showPublishModal && publishProject && (
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" onClick={() => setShowPublishModal(false)}>
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-[var(--bg-panel)] w-full max-w-md p-6 rounded-[32px] border border-white/10 shadow-2xl relative"
-              onClick={e => e.stopPropagation()}
-            >
-              <h3 className="text-xl font-black text-white mb-6">Publicar Arte</h3>
-              
-              <div className="flex justify-center mb-6">
-                <div className="w-32 h-32 rounded-2xl overflow-hidden bg-black/20 border border-white/5 flex items-center justify-center shadow-inner">
-                  <img src={publishProject.thumbnail} className="w-full h-full object-contain image-pixelated" alt="Preview" />
-                </div>
-              </div>
-
-              <div className="space-y-4 mb-6">
-                <div>
-                  <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">TÃ­tulo</label>
-                  <input 
-                    type="text" 
-                    value={publishTitle} 
-                    onChange={e => setPublishTitle(e.target.value)} 
-                    className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[var(--accent-color)] transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">DescriÃ§Ã£o (Opcional)</label>
-                  <textarea 
-                    value={publishDescription} 
-                    onChange={e => setPublishDescription(e.target.value)} 
-                    rows={3}
-                    className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[var(--accent-color)] transition-colors resize-none"
-                    placeholder="Conte sobre sua criaÃ§Ã£o..."
-                  />
-                </div>
-                
-                <div className="p-3 bg-white/5 rounded-xl border border-white/5 flex items-center justify-between cursor-pointer hover:bg-white/10 transition-colors" onClick={() => setPublishIsPrivate(!publishIsPrivate)}>
-                  <div>
-                    <span className="block text-sm font-bold text-white">{publishIsPrivate ? 'Privado' : 'PÃºblico (Comunidade)'}</span>
-                    <span className="text-[10px] text-gray-400 font-bold">
-                      {publishIsPrivate ? 'Apenas no seu perfil.' : 'VisÃ­vel na comunidade global.'}
-                    </span>
-                  </div>
-                  <div className={`w-10 h-5 rounded-full relative transition-colors ${publishIsPrivate ? 'bg-gray-500' : 'bg-[var(--accent-color)]'}`}>
-                    <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-md transition-all ${publishIsPrivate ? 'right-0.5' : 'left-0.5'}`} />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <button onClick={() => setShowPublishModal(false)} className="flex-1 p-3 rounded-xl font-bold text-white/50 hover:bg-white/5 transition-colors">Cancelar</button>
-                <button 
-                  onClick={submitPublishPost} 
-                  disabled={publishing || !publishTitle.trim()} 
-                  className="flex-1 p-3 bg-[var(--accent-color)] rounded-xl font-black text-white hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 disabled:active:scale-100 flex items-center justify-center gap-2"
-                >
-                  {publishing ? <RefreshCw size={16} className="animate-spin" /> : <ShareIcon size={16} />}
-                  {publishing ? 'Enviando...' : 'Publicar'}
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* ========== USER PROFILE MODAL ========== */}
-      <AnimatePresence>
-        {viewingUser && (
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md" onClick={() => setViewingUser(null)}>
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 30 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 30 }}
-              className="bg-[var(--bg-app)] w-full max-w-4xl h-[85vh] rounded-[40px] border border-white/10 shadow-2xl relative flex flex-col overflow-hidden"
-              onClick={e => e.stopPropagation()}
-            >
-              <button onClick={() => setViewingUser(null)} className="absolute top-6 right-6 p-2 bg-black/40 hover:bg-white/10 rounded-full z-20 transition-colors backdrop-blur-md text-white"><X size={20} /></button>
-              
-              {/* Cover & Header */}
-              <div className="relative h-48 bg-gradient-to-r from-[#161622] to-black flex-shrink-0">
-                <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(var(--accent-color) 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
-                <div className="absolute -bottom-16 left-8 flex items-end gap-6">
-                  <div className="relative w-32 h-32 rounded-[28px] bg-[var(--bg-panel)] border-[4px] border-[var(--bg-app)] shadow-2xl flex items-center justify-center overflow-hidden">
-                    <img 
-                      src={viewingUser.id === session?.user?.id 
-                        ? getAvatarFallback(profileImage, profileName)
-                        : getAvatarFallback(viewingUser.avatar_url, viewingUser.display_name || viewingUser.id)} 
-                      className="w-full h-full object-cover" 
-                      alt="Avatar" 
-                      onError={(e) => { (e.target as HTMLImageElement).src = getAvatarFallback(null, viewingUser.display_name || viewingUser.id); }}
-                    />
-                    {(viewingUser.id === session?.user?.id ? selectedBadge : viewingUser.badge) && (
-                      <div className="absolute -bottom-1 -right-1 w-10 h-10 rounded-xl bg-[var(--bg-app)] border-2 border-[var(--bg-app)] flex items-center justify-center shadow-lg z-10">
-                        <img 
-                          src={badges.find(b => b.id === (viewingUser.id === session?.user?.id ? selectedBadge : viewingUser.badge))?.image || '/badges/free_1.png'} 
-                          className="w-7 h-7 object-contain" 
-                          alt="Selo" 
-                        />
-                      </div>
-                    )}
-                  </div>
-                  <div className="mb-2">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-3xl font-black text-white">{viewingUser.id === session?.user?.id ? profileName : (viewingUser.display_name || 'Artista')}</h2>
-                      {(viewingUser.isFounder || (viewingUser.id === session?.user?.id && profileName.toLowerCase() === 'kelvin')) && (
-                        <span className="px-2 py-0.5 bg-gradient-to-r from-yellow-500 to-amber-600 text-black text-[9px] font-black rounded-md shadow-[0_0_10px_rgba(245,158,11,0.4)] animate-pulse">
-                          FUNDADOR
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 border border-[var(--accent-color)] text-[var(--accent-color)] bg-[var(--accent-color)]/10 backdrop-blur-sm">
-                        <Award size={12} /> {experienceLevels.find(l => l.id === (viewingUser.id === session?.user?.id ? experienceLevel : viewingUser.experience_level))?.label || 'Iniciante'}
-                      </span>
-                      {(viewingUser.id === session?.user?.id ? isPro : viewingUser.is_pro) && (
-                        <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-yellow-400 text-yellow-400 bg-yellow-400/10 backdrop-blur-sm flex items-center gap-1">
-                          <Star size={10} className="fill-yellow-400" /> PRO
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Follow Button */}
-                {session?.user?.id !== viewingUser.id && (
-                  <div className="absolute bottom-4 right-8">
-                    <button 
-                      onClick={handleFollowToggle}
-                      className={`px-6 py-2.5 rounded-full font-black text-sm transition-all active:scale-95 shadow-lg flex items-center gap-2 ${
-                        isFollowing ? 'bg-white/10 text-white hover:bg-white/20 border border-white/10' : 'bg-[var(--accent-color)] text-white hover:brightness-110'
-                      }`}
-                    >
-                      {isFollowing ? <><Check size={16} /> Seguindo</> : <><User size={16} /> Seguir</>}
-                    </button>
-                  </div>
-                )}
-              </div>
-              
-              <div className="flex-1 overflow-y-auto mt-20 px-8 pb-8 custom-scrollbar">
-                {/* Tabs */}
-                <div className="flex gap-4 mb-6 border-b border-white/5 pb-4">
-                  <button 
-                    onClick={() => setProfileModalTab('posts')}
-                    className={`flex-1 flex flex-col items-center justify-center p-4 rounded-2xl transition-all ${profileModalTab === 'posts' ? 'bg-white/10 shadow-inner scale-105' : 'hover:bg-white/5 opacity-50 hover:opacity-100'}`}
-                  >
-                    <span className="block text-2xl font-black text-white">{viewingUser.postsCount || viewingUserPosts.length}</span>
-                    <span className="text-[10px] font-bold text-[var(--accent-color)] uppercase tracking-widest mt-1">Artes</span>
-                  </button>
-                  <button 
-                    onClick={() => setProfileModalTab('followers')}
-                    className={`flex-1 flex flex-col items-center justify-center p-4 rounded-2xl transition-all ${profileModalTab === 'followers' ? 'bg-white/10 shadow-inner scale-105' : 'hover:bg-white/5 opacity-50 hover:opacity-100'}`}
-                  >
-                    <span className="block text-2xl font-black text-white">{followersCount}</span>
-                    <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mt-1">Seguidores</span>
-                  </button>
-                </div>
-                
-                {/* Tab Content */}
-                {profileModalTab === 'posts' ? (
-                  <>
-                    <h3 className="text-lg font-black text-white mb-4">Galeria</h3>
-                    {viewingUserPosts.length === 0 ? (
-                      <div className="py-20 text-center bg-white/5 rounded-3xl border border-dashed border-white/10">
-                        <p className="text-sm text-[var(--text-muted)] font-bold">Nenhuma arte pÃºblica encontrada.</p>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {viewingUserPosts.map(post => (
-                          <div key={post.id} className="bg-[var(--bg-panel)] rounded-2xl border border-white/5 overflow-hidden group">
-                            <div className="aspect-square bg-black/20 flex items-center justify-center p-2 cursor-pointer" onClick={() => {
-                              setZoomedPost({
-                                ...post, 
-                                profiles: { display_name: viewingUser.display_name, avatar_url: viewingUser.avatar_url, badge: viewingUser.badge, is_pro: viewingUser.is_pro },
-                                description: post.description?.replace(/\[ID:.*\]/, '').trim(),
-                                _postDisplayName: viewingUser.display_name || 'Anônimo'
-                              });
-                            }}>
-                              <img src={post.image_url} alt={post.title} className="max-w-full max-h-full object-contain image-pixelated group-hover:scale-105 transition-transform" />
-                            </div>
-                            <div className="p-3 bg-black/40 backdrop-blur-md">
-                              <h4 className="font-bold text-xs text-white truncate">{post.title}</h4>
-                              {post.description && <p className="text-[10px] text-gray-400 truncate mt-0.5">{post.description.replace(/\[ID:.*\]/, '').trim()}</p>}
-                              <div className="flex items-center justify-between mt-1">
-                                <span className="text-[9px] text-[var(--text-muted)]">{new Date(post.created_at).toLocaleDateString()}</span>
-                                <div className="flex items-center gap-1 text-[var(--text-muted)] text-[10px] font-bold">
-                                  <Heart size={10} className="text-red-400" /> {post.likes || 0}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <h3 className="text-lg font-black text-white mb-4">Seguidores</h3>
-                    {viewingUserFollowers.length === 0 ? (
-                      <div className="py-20 text-center bg-white/5 rounded-3xl border border-dashed border-white/10">
-                        <p className="text-sm text-[var(--text-muted)] font-bold">Nenhum seguidor ainda.</p>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col gap-3">
-                        {viewingUserFollowers.map(follower => (
-                          <div key={follower.id} className="flex items-center justify-between p-4 bg-black/20 rounded-2xl border border-white/5">
-                            <div className="flex items-center gap-4">
-                              <div className="w-12 h-12 rounded-full overflow-hidden bg-white/10">
-                                <img src={getAvatarFallback(follower.avatar_url, follower.display_name || follower.id)} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).src = getAvatarFallback(null, follower.display_name || follower.id); }} />
-                              </div>
-                              <div>
-                                <h4 className="font-bold text-white text-sm flex items-center gap-2">
-                                  {follower.display_name}
-                                  {follower.is_pro && <Star size={10} className="text-yellow-400 fill-yellow-400" />}
-                                </h4>
-                              </div>
-                            </div>
-                            {session?.user?.id !== follower.id && (
-                              <button 
-                                onClick={() => handleViewUserProfile(follower.id, follower)}
-                                className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-full text-xs font-bold transition-colors"
-                              >
-                                Ver Perfil
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* ========== ZOOMED POST LIGHTBOX ========== */}
-      <AnimatePresence>
-        {zoomedPost && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4"
-            onClick={() => setZoomedPost(null)}
-          >
-            <button className="absolute top-6 right-6 p-3 bg-white/10 rounded-full text-white hover:bg-white/20 transition-colors backdrop-blur-md">
-              <X size={24} />
-            </button>
-            
-            <motion.div
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              className="relative max-w-[95vw] max-h-[85vh] flex items-center justify-center"
-              onClick={e => e.stopPropagation()}
-            >
-              <img 
-                src={zoomedPost.image_url} 
-                alt={zoomedPost.title} 
-                className="w-full h-full object-contain image-pixelated shadow-[0_0_80px_rgba(0,0,0,0.5)]"
-              />
-              
-              {/* Marca D'agua com nome do desenhista */}
-              <div className="absolute bottom-3 right-3 bg-black/35 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/5 pointer-events-none shadow-lg">
-                <span className="text-white/50 text-[10px] font-bold tracking-wider flex items-center gap-1.5">
-                  DragonArt · @{zoomedPost.profiles?.display_name || zoomedPost._postDisplayName || 'Anônimo'}
-                </span>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* ========== PRO FEATURES MODAL ========== */}
       <AnimatePresence>
@@ -3042,23 +2095,12 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                           setShowAvatarPicker(false);
                           sound.playClick();
                           
-                          // Optimistic update for community posts
-                          if (session?.user?.id) {
-                            setCommunityPosts(currentPosts => 
-                              currentPosts.map(post => 
-                                post.user_id === session.user.id 
-                                  ? { ...post, profiles: { ...post.profiles, avatar_url: url } } 
-                                  : post
-                              )
-                            );
-                            
-                            await supabase.from('profiles').upsert({
-                              id: session.user.id,
-                              avatar_url: url,
-                              updated_at: new Date()
-                            });
-                            await supabase.auth.updateUser({ data: { avatar_url: url } });
-                          }
+                          await supabase.from('profiles').upsert({
+                            id: session.user.id,
+                            avatar_url: url,
+                            updated_at: new Date()
+                          });
+                          await supabase.auth.updateUser({ data: { avatar_url: url } });
                         }}
                         className={`relative aspect-square rounded-2xl overflow-hidden border-2 transition-all ${
                           profileImage === url ? 'border-[var(--accent-color)] ring-4 ring-[var(--accent-color)]/20' : 'border-white/5 opacity-60 hover:opacity-100'
@@ -3088,23 +2130,12 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
                             setShowAvatarPicker(false);
                             sound.playClick(); 
                             
-                            // Optimistic update for community posts
-                            if (session?.user?.id) {
-                              setCommunityPosts(currentPosts => 
-                                currentPosts.map(post => 
-                                  post.user_id === session.user.id 
-                                    ? { ...post, profiles: { ...post.profiles, avatar_url: url } } 
-                                    : post
-                                )
-                              );
-                              
-                              await supabase.from('profiles').upsert({
-                                id: session.user.id,
-                                avatar_url: url,
-                                updated_at: new Date()
-                              });
-                              await supabase.auth.updateUser({ data: { avatar_url: url } });
-                            }
+                            await supabase.from('profiles').upsert({
+                              id: session.user.id,
+                              avatar_url: url,
+                              updated_at: new Date()
+                            });
+                            await supabase.auth.updateUser({ data: { avatar_url: url } });
                           } else {
                             alert('Este avatar animado é exclusivo para membros PRO! 🌟');
                           }
@@ -3127,7 +2158,7 @@ export default function StartMenu({ onStart }: { onStart: (config: ProjectConfig
               </div>
 
               <div className="p-6 border-t border-white/5 bg-white/[0.02] flex items-center justify-center">
-                <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase text-center max-w-xs">Essas fotos aparecem no seu perfil e nas suas artes publicadas na comunidade.</p>
+                <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase text-center max-w-xs">Essas fotos aparecem no seu perfil de artista.</p>
               </div>
             </motion.div>
           </div>
